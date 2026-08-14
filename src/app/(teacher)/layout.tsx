@@ -4,6 +4,7 @@ import { brand } from "@/lib/brand";
 import { requireTeacher } from "@/lib/session";
 
 const nav = [
+  { href: "/teacher", label: "Home" },
   { href: "/teacher/content", label: "Content" },
   { href: "/teacher/syllabus", label: "Syllabus" },
   { href: "/teacher/students", label: "Students" },
@@ -22,7 +23,7 @@ export default async function TeacherLayout({
     <div className="flex min-h-full flex-1 flex-col">
       <header className="border-b border-[var(--border)] bg-[var(--surface)]">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-6 px-6 py-3">
-          <Link href="/teacher/content" className="font-semibold">
+          <Link href="/teacher" className="font-semibold">
             {brand.name}
           </Link>
           <nav className="flex flex-1 gap-1">
