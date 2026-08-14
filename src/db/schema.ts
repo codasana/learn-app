@@ -108,6 +108,26 @@ export const documentKind = pgEnum("document_kind", [
   "share_card",
 ]);
 
+/** How a lead entered the funnel. Cold traffic takes the tool; warm traffic books. */
+export const leadSource = pgEnum("lead_source", [
+  "tool", // public "check your child's English level" tool
+  "referral", // word of mouth from an existing parent
+  "direct", // booked straight from the marketing page
+  "other",
+]);
+
+export const leadStatus = pgEnum("lead_status", [
+  "new",
+  "check_sent",
+  "check_done",
+  "session_booked",
+  "session_done",
+  "report_sent",
+  "enrolled",
+  "declined",
+  "dormant",
+]);
+
 /* ------------------------------------------------------------------ */
 /* Auth — Better Auth owns these four tables                           */
 /* ------------------------------------------------------------------ */
@@ -188,6 +208,96 @@ export const childProfiles = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("child_profiles_parent_idx").on(t.parentId)],
+);
+
+/* ------------------------------------------------------------------ */
+/* Leads and placement — the funnel BEFORE any account exists          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A family who has shown interest but has not enrolled. No user account exists
+ * at this stage, deliberately: asking a parent to create a password before we
+ * have delivered any value costs conversions, and if they never enrol we should
+ * not be storing an account at all.
+ *
+ * Declined leads are kept as the re-marketing list for the next term, with
+ * `purgeAfter` set 12 months out. This retention is disclosed on the form.
+ */
+export const leads = pgTable(
+  "leads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    parentName: text("parent_name"),
+    parentEmail: text("parent_email"),
+    whatsapp: text("whatsapp"),
+
+    /** First name only, same rule as enrolled children. */
+    childFirstName: text("child_first_name"),
+    childAgeBand: ageBand("child_age_band"),
+    childGrade: integer("child_grade"),
+
+    timezone: text("timezone").notNull().default("Asia/Kolkata"),
+    source: leadSource("source").notNull().default("direct"),
+    status: leadStatus("status").notNull().default("new"),
+
+    /** Cal.com booking reference for the free session. */
+    calBookingId: text("cal_booking_id"),
+    sessionAt: timestamp("session_at", { withTimezone: true }),
+
+    /** What the app's check suggested, versus what the teacher decided. */
+    suggestedLevel: integer("suggested_level"),
+    finalLevel: integer("final_level"),
+    /** Speaking and writing observations from the live session. */
+    teacherNotes: text("teacher_notes"),
+
+    notes: text("notes"),
+    /** Set on decline; a scheduled job removes the row after this date. */
+    purgeAfter: date("purge_after"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("leads_status_idx").on(t.status),
+    index("leads_email_idx").on(t.parentEmail),
+  ],
+);
+
+/**
+ * One run of the public level-check tool.
+ *
+ * `leadId` is nullable on purpose: the tool is open to anyone with no email
+ * required. A row starts anonymous and is linked to a lead only if the parent
+ * asks for the full report afterwards. The token in the URL is the only
+ * credential — it grants access to this attempt and nothing else.
+ */
+export const placementAttempts = pgTable(
+  "placement_attempts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leadId: uuid("lead_id").references(() => leads.id, { onDelete: "cascade" }),
+    /** Long random, unguessable. Not a session — scoped to this attempt only. */
+    token: text("token").notNull().unique(),
+
+    childFirstName: text("child_first_name"),
+    childAgeBand: ageBand("child_age_band"),
+
+    /** Raw answers, for the teacher to inspect during the session. */
+    responses: jsonb("responses").notNull().default({}),
+    vocabScore: integer("vocab_score"),
+    vocabTotal: integer("vocab_total"),
+    readingScore: integer("reading_score"),
+    readingTotal: integer("reading_total"),
+    listeningScore: integer("listening_score"),
+    listeningTotal: integer("listening_total"),
+
+    /** Provisional only. The teacher makes the real call — see `leads.finalLevel`. */
+    suggestedLevel: integer("suggested_level"),
+
+    startedAt: timestamp("started_at").notNull().defaultNow(),
+    completedAt: timestamp("completed_at"),
+    expiresAt: timestamp("expires_at").notNull(),
+  },
+  (t) => [index("placement_attempts_lead_idx").on(t.leadId)],
 );
 
 /* ------------------------------------------------------------------ */
