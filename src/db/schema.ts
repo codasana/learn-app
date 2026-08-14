@@ -300,7 +300,16 @@ export const leads = pgTable(
     calBookingId: text("cal_booking_id"),
     sessionAt: timestamp("session_at", { withTimezone: true }),
 
-    /** What the app's check suggested, versus what the teacher decided. */
+    /**
+     * What the app's check suggested, versus what the teacher decided.
+     *
+     * Levels are real in the programme — four of them, with definitions and
+     * marketing behind each — and this is where they live: the conversation
+     * with a parent about where their child starts. They are deliberately NOT
+     * a foreign key to anything. Content and syllabi carry no level, so
+     * nothing downstream is constrained by the number chosen here. Aligned in
+     * practice, uncoupled in the schema. Do not "fix" the mismatch.
+     */
     suggestedLevel: integer("suggested_level"),
     finalLevel: integer("final_level"),
     /** Speaking and writing observations from the live session. */
