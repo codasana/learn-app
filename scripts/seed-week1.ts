@@ -10,9 +10,8 @@
  * shape of, rather than an empty form.
  *
  * The three PDFs (slides, two worksheets) land as drafts with no file
- * attached, because file upload is not connected yet. They are the honest
- * placeholder: the week is complete apart from the things that genuinely are
- * not ready.
+ * attached — those are Sheeba's to make. Uploading works; there is simply
+ * nothing yet to upload. The week is complete apart from them.
  */
 import { config } from "dotenv";
 import { and, eq } from "drizzle-orm";
@@ -283,7 +282,7 @@ async function main() {
     status: "draft",
     body: {
       caption: "Capital letter at the start, full stop at the end.",
-      notes: "The PDF still needs attaching — file upload is not connected yet.",
+      notes: "Still needs its PDF attaching.",
     },
   });
 
@@ -305,7 +304,7 @@ async function main() {
     status: "draft",
     body: {
       caption: "My name and age · My school or city · One thing I like",
-      notes: "The PDF still needs attaching — file upload is not connected yet.",
+      notes: "Still needs its PDF attaching.",
     },
   });
 
@@ -327,7 +326,7 @@ async function main() {
     status: "draft",
     body: {
       caption: "Sentences to fix — capitals at the start, full stops at the end.",
-      notes: "The PDF still needs attaching — file upload is not connected yet.",
+      notes: "Still needs its PDF attaching.",
     },
   });
 
