@@ -22,32 +22,41 @@
   /* --- Ground and surfaces --------------------------------------------- */
   --ground: #fdfbf7; /* warm cream — calm, not clinical */
   --surface: #ffffff;
-  --surface-sunken: #f5f1e9;
-  --border: #e7e0d4;
-  --border-strong: #d4cabb;
+  --surface-sunken: #f6f2ea; /* oatmeal */
+  --border: #e8e0d2;
+  --border-strong: #d5c9b6;
 
-  /* --- Ink -------------------------------------------------------------- */
-  --ink: #22262f; /* warm near-black, softer than pure #000 */
-  --ink-muted: #5c6472;
-  --ink-faint: #8a90a0;
+  /* --- Ink. Warm, never blue-grey: nothing on the page should read cold - */
+  --ink: #262220; /* warm near-black */
+  --ink-muted: #5f584f;
+  --ink-faint: #8c8478;
   --ink-on-primary: #ffffff;
 
-  /* --- Primary: deep indigo. Trustworthy, not childish, not corporate --- */
-  --primary: #4338ca;
-  --primary-hover: #3b31b3;
-  --primary-soft: #eeecfb; /* tinted backgrounds, selected states */
-  --primary-ring: #a5a0e8;
+  /*
+   * Primary: deep ink indigo.
+   *
+   * Deliberately NOT Tailwind's indigo-700 — that is the colour of every
+   * developer tool on the internet, and a parent choosing a teacher for a
+   * nine-year-old reads screen-bright as "platform". This is closer to
+   * fountain-pen ink: the same family, dropped in brightness and saturation
+   * until it belongs on paper rather than in a dashboard.
+   */
+  --primary: #313c78;
+  --primary-hover: #262f61;
+  --primary-soft: #eceef6; /* tinted backgrounds, selected states */
+  --primary-ring: #9aa3cf;
 
-  /* --- Accent: warm amber. Encouragement, stars, streaks --------------- */
-  --accent: #f59e0b;
-  --accent-soft: #fef3e2;
-  --accent-ink: #92590a; /* amber text that passes contrast on light ground */
+  /* --- Accent: terracotta. Clay, not a notification badge --------------- */
+  --accent: #c2612f;
+  --accent-soft: #fbeee4;
+  --accent-ink: #8f4520; /* passes contrast as text on the light ground */
+  --accent-bright: #d9a441; /* marigold, for small celebratory moments */
 
   /* --- Feedback. Note there is no red token, by design ------------------ */
-  --correct: #15803d;
-  --correct-soft: #e8f5ec;
-  --notyet: #d97706; /* "Not yet — try again!" — never an error red */
-  --notyet-soft: #fef3e2;
+  --correct: #3f7d54;
+  --correct-soft: #e9f2eb;
+  --notyet: #b8722c; /* "Not yet — try again!" — never an error red */
+  --notyet-soft: #fbeee4;
 
   /* --- Shape ------------------------------------------------------------ */
   --radius-sm: 8px;
@@ -95,7 +104,7 @@
   --radius: 10px;
   --radius-lg: 12px;
   --radius-card: 14px;
-  --accent: #d97706; /* less saturated — reads as older */
+  --accent: #a8552a; /* less saturated — reads as older */
   --celebrate-scale: 1.02; /* near-flat; teenagers dislike being cheered at */
   --content-max: 46rem;
 }
@@ -118,6 +127,7 @@
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
   --color-accent-ink: var(--accent-ink);
+  --color-accent-bright: var(--accent-bright);
 
   --color-correct: var(--correct);
   --color-correct-soft: var(--correct-soft);
@@ -133,9 +143,14 @@
   --shadow-DEFAULT: var(--shadow);
   --shadow-lg: var(--shadow-lg);
 
-  --font-sans:
-    ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, -apple-system,
-    sans-serif;
+  /*
+   * Two faces, and the split is the point. The serif carries the headlines,
+   * because a page that claims one teacher writes everything herself should
+   * not be set entirely in the typeface of a software company. The sans does
+   * everything else and gets out of the way.
+   */
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
 }
 
 /* ==========================================================================
