@@ -22,6 +22,13 @@
       "when": 1786680392887,
       "tag": "0002_student_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786681118445,
+      "tag": "0003_teacher_ownership",
+      "breakpoints": true
     }
   ]
 }

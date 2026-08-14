@@ -56,6 +56,19 @@ export const audience = pgEnum("audience", ["teacher", "student", "parent"]);
 
 export const publishStatus = pgEnum("publish_status", ["draft", "published"]);
 
+/**
+ * Where a content item or syllabus belongs.
+ *
+ * The programme's thesis is a central library — content is written once and
+ * reused for every future cohort, and that library is the long-term asset. So
+ * `central` is the default and the norm.
+ *
+ * `private` exists for a teacher who writes something for their own students.
+ * Promoting it into the shared library is a single flip of this column, which
+ * is the whole point of modelling it this way rather than as separate tables.
+ */
+export const contentScope = pgEnum("content_scope", ["central", "private"]);
+
 /** When a class material becomes visible to the student. */
 export const releaseRule = pgEnum("release_rule", [
   "before",
@@ -354,6 +367,16 @@ export const contentItems = pgTable(
     grammarTags: text("grammar_tags").array().notNull().default([]),
     audience: audience("audience").notNull().default("student"),
     status: publishStatus("status").notNull().default("draft"),
+
+    /**
+     * Ownership, for the multi-teacher future. Nullable today because there is
+     * one teacher; queries are deliberately NOT scoped by these yet.
+     */
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    scope: contentScope("scope").notNull().default("central"),
+
     /** Type-specific payload. See spec §4.2. */
     body: jsonb("body").notNull().default({}),
     /** R2 key for slides / worksheet / image / audio / video. */
@@ -376,6 +399,11 @@ export const syllabi = pgTable("syllabi", {
   name: text("name").notNull(),
   version: integer("version").notNull().default(1),
   status: publishStatus("status").notNull().default("draft"),
+  /** A teacher may build their own for specific students; see contentScope. */
+  createdBy: text("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  scope: contentScope("scope").notNull().default("central"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -457,6 +485,10 @@ export const classSessionMaterials = pgTable(
 export const classGroups = pgTable("class_groups", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
+  /** Who teaches this group. Nullable while there is a single teacher. */
+  teacherId: text("teacher_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
   meetingUrl: text("meeting_url"),
   timezone: text("timezone").notNull().default("Asia/Kolkata"),
   isActive: boolean("is_active").notNull().default(true),
@@ -478,6 +510,10 @@ export const enrollments = pgTable(
       .notNull()
       .references(() => syllabi.id, { onDelete: "restrict" }),
     classGroupId: uuid("class_group_id").references(() => classGroups.id, {
+      onDelete: "set null",
+    }),
+    /** Who teaches this student. Nullable while there is a single teacher. */
+    teacherId: text("teacher_id").references(() => users.id, {
       onDelete: "set null",
     }),
     startDate: date("start_date").notNull(),
@@ -531,6 +567,9 @@ export const scheduledClasses = pgTable(
       onDelete: "set null",
     }),
     classNumber: integer("class_number"), // 1 or 2
+    teacherId: text("teacher_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     durationMin: integer("duration_min").notNull().default(45),
     meetingUrl: text("meeting_url"),
@@ -685,6 +724,10 @@ export const parentNotes = pgTable("parent_notes", {
     .references(() => childProfiles.id, { onDelete: "cascade" }),
   weekNumber: integer("week_number").notNull(),
   body: text("body").notNull(),
+  /** Which teacher wrote it. */
+  authorId: text("author_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
