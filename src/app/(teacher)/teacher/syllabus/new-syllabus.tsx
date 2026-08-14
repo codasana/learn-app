@@ -4,9 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Field, Input, Notice, Select } from "@/components/ui/field";
-import { LEVEL_NAMES, LEVELS } from "@/lib/content-types";
-
+import { Field, Input, Notice } from "@/components/ui/field";
 import { createSyllabus } from "./actions";
 
 export function NewSyllabus({ hasAny }: { hasAny: boolean }) {
@@ -60,32 +58,20 @@ export function NewSyllabus({ hasAny }: { hasAny: boolean }) {
           name="name"
           required
           autoFocus
-          placeholder="Level 1 · December 2026 term"
+          placeholder="Beginners · December 2026 term"
         />
       </Field>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Level" htmlFor="level">
-          <Select id="level" name="level" defaultValue="1">
-            {LEVELS.map((l) => (
-              <option key={l} value={l}>
-                {LEVEL_NAMES[l]}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        <Field label="How many weeks" htmlFor="weeks" hint="A term is twelve.">
-          <Input
-            id="weeks"
-            name="weeks"
-            type="number"
-            min={1}
-            max={52}
-            defaultValue={12}
-          />
-        </Field>
-      </div>
+      <Field label="How many weeks" htmlFor="weeks" hint="A term is twelve.">
+        <Input
+          id="weeks"
+          name="weeks"
+          type="number"
+          min={1}
+          max={52}
+          defaultValue={12}
+        />
+      </Field>
 
       <div className="flex gap-3">
         <Button type="submit" disabled={pending}>

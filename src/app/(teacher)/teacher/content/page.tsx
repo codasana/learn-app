@@ -8,10 +8,9 @@ import {
   CONTENT_TYPES,
   contentTypesInGroup,
   type ContentTypeKey,
-  LEVELS,
 } from "@/lib/content-types";
 
-import { listContent } from "./actions";
+import { allTags, listContent } from "./actions";
 
 export const metadata: Metadata = { title: "Content" };
 
@@ -35,11 +34,11 @@ export default async function ContentPage({ searchParams }: PageProps<"/teacher/
   const filters = {
     q: typeof sp.q === "string" ? sp.q : undefined,
     type: typeof sp.type === "string" ? sp.type : undefined,
-    level: typeof sp.level === "string" ? sp.level : undefined,
+    tag: typeof sp.tag === "string" ? sp.tag : undefined,
     status: typeof sp.status === "string" ? sp.status : undefined,
   };
 
-  const items = await listContent(filters);
+  const [items, tags] = await Promise.all([listContent(filters), allTags()]);
 
   return (
     <div className="space-y-6">
@@ -47,8 +46,9 @@ export default async function ContentPage({ searchParams }: PageProps<"/teacher/
         <div>
           <h1 className="text-2xl font-semibold">Content</h1>
           <p className="text-[var(--ink-muted)]">
-            Everything you write lives here. Items are reusable — one passage can
-            appear in any week, at any level.
+            Everything you write lives here, and nothing belongs to a
+            particular week — one passage can appear in as many syllabuses as
+            you like. Tag things however helps you find them again.
           </p>
         </div>
         <Button asChild>
@@ -80,14 +80,14 @@ export default async function ContentPage({ searchParams }: PageProps<"/teacher/
           ))}
         </select>
         <select
-          name="level"
-          defaultValue={filters.level ?? ""}
+          name="tag"
+          defaultValue={filters.tag ?? ""}
           className="min-h-10 rounded-[var(--radius)] border border-[var(--border-strong)] bg-[var(--surface)] px-3 text-sm"
         >
-          <option value="">Any level</option>
-          {LEVELS.map((l) => (
-            <option key={l} value={l}>
-              Level {l}
+          <option value="">Any tag</option>
+          {tags.map(({ tag, n }) => (
+            <option key={tag} value={tag}>
+              {tag} ({n})
             </option>
           ))}
         </select>
@@ -120,7 +120,7 @@ export default async function ContentPage({ searchParams }: PageProps<"/teacher/
               <tr>
                 <th className="px-4 py-2.5 font-medium">Title</th>
                 <th className="px-4 py-2.5 font-medium">Kind</th>
-                <th className="px-4 py-2.5 font-medium">Level</th>
+                <th className="px-4 py-2.5 font-medium">Tags</th>
                 <th className="px-4 py-2.5 font-medium">Age</th>
                 <th className="px-4 py-2.5 font-medium">Status</th>
               </tr>
@@ -138,18 +138,18 @@ export default async function ContentPage({ searchParams }: PageProps<"/teacher/
                     >
                       {item.title}
                     </Link>
-                    {item.themeTags.length > 0 && (
-                      <span className="ml-2 text-[var(--ink-faint)]">
-                        {item.themeTags.join(" · ")}
-                      </span>
-                    )}
+
                   </td>
                   <td className="px-4 py-2.5 text-[var(--ink-muted)]">
                     {CONTENT_TYPES[item.type as ContentTypeKey]?.label ??
                       item.type}
                   </td>
                   <td className="px-4 py-2.5 text-[var(--ink-muted)]">
-                    {item.difficultyLevel}
+                    {item.tags.length > 0 ? (
+                      item.tags.join(" · ")
+                    ) : (
+                      <span className="text-[var(--ink-faint)]">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-2.5 text-[var(--ink-muted)]">
                     {AGE_BANDS[item.ageBand]}

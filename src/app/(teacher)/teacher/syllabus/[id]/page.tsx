@@ -11,7 +11,6 @@ import {
   syllabusWeeks,
   syllabusWeekItems,
 } from "@/db/schema";
-import { LEVEL_NAMES } from "@/lib/content-types";
 import { requireTeacher } from "@/lib/session";
 
 import { Board } from "./board";
@@ -75,7 +74,6 @@ export default async function SyllabusBoardPage({
         </Link>
         <h1 className="mt-1 text-2xl font-semibold">{syllabus.name}</h1>
         <p className="text-[var(--ink-muted)]">
-          {LEVEL_NAMES[syllabus.level] ?? `Level ${syllabus.level}`} ·{" "}
           {weeks.length} week{weeks.length === 1 ? "" : "s"} ·{" "}
           {syllabus.status === "published" ? "Published" : "Draft"}
         </p>

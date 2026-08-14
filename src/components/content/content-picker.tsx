@@ -25,20 +25,21 @@ type LibraryRow = Awaited<ReturnType<typeof searchLibrary>>[number];
  */
 export function ContentPicker({
   group,
-  level,
+  tags,
   onPick,
   onCancel,
   busy,
 }: {
   group: (typeof CONTENT_GROUPS)[number];
-  level: number;
+  /** Tags already in use, for the filter. */
+  tags: string[];
   onPick: (contentItemId: string) => void;
   onCancel: () => void;
   busy?: boolean;
 }) {
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
-  const [thisLevelOnly, setThisLevelOnly] = useState(true);
+  const [tag, setTag] = useState("");
   const [rows, setRows] = useState<LibraryRow[]>([]);
   const [loading, startTransition] = useTransition();
 
@@ -49,13 +50,13 @@ export function ContentPicker({
           await searchLibrary({
             q: q.trim() || undefined,
             type: type || undefined,
-            level: thisLevelOnly ? level : undefined,
+            tag: tag || undefined,
           }),
         );
       });
     }, 200);
     return () => clearTimeout(timer);
-  }, [q, type, thisLevelOnly, level]);
+  }, [q, type, tag]);
 
   const suggested = contentTypesInGroup(group);
 
@@ -89,14 +90,16 @@ export function ContentPicker({
         </Select>
       </div>
 
-      <label className="flex items-center gap-2 text-sm text-[var(--ink-muted)]">
-        <input
-          type="checkbox"
-          checked={thisLevelOnly}
-          onChange={(e) => setThisLevelOnly(e.target.checked)}
-        />
-        Only show level {level}
-      </label>
+      {tags.length > 0 && (
+        <Select value={tag} onChange={(e) => setTag(e.target.value)}>
+          <option value="">Any tag</option>
+          {tags.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </Select>
+      )}
 
       {rows.length === 0 ? (
         <p className="py-3 text-sm text-[var(--ink-muted)]">

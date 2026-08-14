@@ -1,6 +1,15 @@
 "use server";
 
-import { and, asc, desc, eq, ilike, type SQL, sql } from "drizzle-orm";
+import {
+  and,
+  arrayContains,
+  asc,
+  desc,
+  eq,
+  ilike,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -36,7 +45,6 @@ function touch(syllabusId: string) {
 
 const newSyllabus = z.object({
   name: z.string().trim().min(1, "Give it a name."),
-  level: z.coerce.number().int().min(1).max(4),
   weeks: z.coerce.number().int().min(1).max(52),
 });
 
@@ -59,7 +67,7 @@ export async function createSyllabus(
   const id = await db.transaction(async (tx) => {
     const [row] = await tx
       .insert(syllabi)
-      .values({ name: v.name, level: v.level, createdBy: teacher.id })
+      .values({ name: v.name, createdBy: teacher.id })
       .returning({ id: syllabi.id });
 
     await tx.insert(syllabusWeeks).values(
@@ -243,7 +251,7 @@ export async function updateClassSession(
 export async function searchLibrary(filters: {
   q?: string;
   type?: string;
-  level?: number;
+  tag?: string;
 }) {
   await requireTeacher();
 
@@ -252,8 +260,8 @@ export async function searchLibrary(filters: {
   if (filters.type && CONTENT_TYPE_KEYS.includes(filters.type as "passage")) {
     where.push(eq(contentItems.type, filters.type as "passage"));
   }
-  if (filters.level) {
-    where.push(eq(contentItems.difficultyLevel, filters.level));
+  if (filters.tag) {
+    where.push(arrayContains(contentItems.tags, [filters.tag.toLowerCase()]));
   }
 
   return db
@@ -261,7 +269,7 @@ export async function searchLibrary(filters: {
       id: contentItems.id,
       title: contentItems.title,
       type: contentItems.type,
-      difficultyLevel: contentItems.difficultyLevel,
+      tags: contentItems.tags,
       ageBand: contentItems.ageBand,
       audience: contentItems.audience,
       status: contentItems.status,

@@ -243,12 +243,10 @@ async function main() {
   };
 
   const base = {
-    difficultyLevel: 1,
     ageBand: "any" as const,
     audience: "student" as const,
     status: "published" as const,
-    themeTags: ["all about me", "introductions"],
-    grammarTags: ["i am", "i have", "i like"],
+    tags: ["week 1", "all about me", "i am / i have / i like"],
   };
 
   const vocabId = await make({
@@ -407,7 +405,7 @@ async function main() {
 
   const [syllabus] = await db
     .insert(syllabi)
-    .values({ name: SYLLABUS_NAME, level: 1, createdBy: owner.id })
+    .values({ name: SYLLABUS_NAME, createdBy: owner.id })
     .returning({ id: syllabi.id });
 
   await db.insert(syllabusWeeks).values(

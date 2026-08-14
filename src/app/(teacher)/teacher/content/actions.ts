@@ -1,6 +1,14 @@
 "use server";
 
-import { and, desc, eq, ilike, type SQL } from "drizzle-orm";
+import {
+  and,
+  arrayContains,
+  desc,
+  eq,
+  ilike,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -13,12 +21,10 @@ import { requireTeacher } from "@/lib/session";
 const itemSchema = z.object({
   title: z.string().trim().min(1, "Give it a title."),
   type: z.enum(CONTENT_TYPE_KEYS as [string, ...string[]]),
-  difficultyLevel: z.coerce.number().int().min(1).max(4),
   ageBand: z.enum(["any", "8_9", "10_11"]),
   audience: z.enum(["student", "teacher", "parent"]),
   status: z.enum(["draft", "published"]),
-  themeTags: z.string().optional(),
-  grammarTags: z.string().optional(),
+  tags: z.string().optional(),
   body: z.string().optional(),
 });
 
@@ -35,7 +41,7 @@ export type ActionResult = { ok: true; id: string } | { ok: false; error: string
 export async function listContent(filters: {
   q?: string;
   type?: string;
-  level?: string;
+  tag?: string;
   status?: string;
 }) {
   await requireTeacher();
@@ -45,11 +51,12 @@ export async function listContent(filters: {
   if (filters.type) {
     where.push(eq(contentItems.type, filters.type as "passage"));
   }
-  if (filters.level) {
-    where.push(eq(contentItems.difficultyLevel, Number(filters.level)));
-  }
   if (filters.status) {
     where.push(eq(contentItems.status, filters.status as "draft"));
+  }
+
+  if (filters.tag) {
+    where.push(arrayContains(contentItems.tags, [filters.tag.toLowerCase()]));
   }
 
   return db
@@ -58,6 +65,24 @@ export async function listContent(filters: {
     .where(where.length ? and(...where) : undefined)
     .orderBy(desc(contentItems.updatedAt))
     .limit(200);
+}
+
+/**
+ * Every tag in use, most-used first.
+ *
+ * Feeds the filter dropdown and the suggestions under the tag box. Showing
+ * what already exists is what stops a library growing three spellings of the
+ * same idea — there is no tag admin screen, and there should not need to be.
+ */
+export async function allTags(): Promise<{ tag: string; n: number }[]> {
+  await requireTeacher();
+  const rows = await db.execute<{ tag: string; n: number }>(sql`
+    select tag, count(*)::int as n
+      from content_items, unnest(tags) as tag
+     group by tag
+     order by n desc, tag asc
+  `);
+  return rows.rows.map((r) => ({ tag: r.tag, n: Number(r.n) }));
 }
 
 export async function saveContentItem(
@@ -93,12 +118,10 @@ export async function saveContentItem(
   const values = {
     title: v.title,
     type: v.type as "passage",
-    difficultyLevel: v.difficultyLevel,
     ageBand: v.ageBand,
     audience: v.audience,
     status: v.status,
-    themeTags: splitTags(v.themeTags),
-    grammarTags: splitTags(v.grammarTags),
+    tags: splitTags(v.tags),
     body: body as Record<string, unknown>,
     updatedAt: new Date(),
   };

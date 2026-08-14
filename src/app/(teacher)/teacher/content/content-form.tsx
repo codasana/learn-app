@@ -13,8 +13,6 @@ import {
   CONTENT_GROUPS,
   CONTENT_TYPES,
   contentTypesInGroup,
-  LEVEL_NAMES,
-  LEVELS,
 } from "@/lib/content-types";
 
 import { saveContentItem } from "./actions";
@@ -23,16 +21,20 @@ export type ContentDraft = {
   id: string | null;
   title: string;
   type: string;
-  difficultyLevel: number;
   ageBand: "any" | "8_9" | "10_11";
   audience: "student" | "teacher" | "parent";
   status: "draft" | "published";
-  themeTags: string[];
-  grammarTags: string[];
+  tags: string[];
   body: unknown;
 };
 
-export function ContentForm({ item }: { item: ContentDraft }) {
+export function ContentForm({
+  item,
+  knownTags,
+}: {
+  item: ContentDraft;
+  knownTags: string[];
+}) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -43,6 +45,20 @@ export function ContentForm({ item }: { item: ContentDraft }) {
   const [body, setBody] = useState<Record<string, unknown>>(
     () => parseBody(item.type, item.body) as Record<string, unknown>,
   );
+
+  // Clicking a suggestion appends it rather than replacing what is typed —
+  // tagging is additive, and losing half-typed input to a stray click is the
+  // kind of small betrayal that stops people using a field at all.
+  function addTag(tag: string) {
+    const input = document.getElementById("tags") as HTMLInputElement | null;
+    if (!input) return;
+    const current = input.value
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (current.includes(tag)) return;
+    input.value = [...current, tag].join(", ");
+  }
 
   function onTypeChange(next: string) {
     setType(next);
@@ -102,39 +118,24 @@ export function ContentForm({ item }: { item: ContentDraft }) {
         </Select>
       </Field>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field
-          label="Level"
-          htmlFor="difficultyLevel"
-          hint="How hard the English is."
-        >
-          <Select
-            id="difficultyLevel"
-            name="difficultyLevel"
-            defaultValue={String(item.difficultyLevel)}
-          >
-            {LEVELS.map((l) => (
-              <option key={l} value={l}>
-                {LEVEL_NAMES[l]}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        <Field
-          label="Age"
-          htmlFor="ageBand"
-          hint="How grown-up the topic is. Separate from level."
-        >
-          <Select id="ageBand" name="ageBand" defaultValue={item.ageBand}>
-            {Object.entries(AGE_BANDS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      </div>
+      {/*
+        There is deliberately no level field. A piece of content takes its
+        level from the syllabus that uses it — see lib/content-usage. Asking
+        for it here would be asking a question with no answer yet.
+      */}
+      <Field
+        label="Age"
+        htmlFor="ageBand"
+        hint="How grown-up the topic is — not how hard the English is."
+      >
+        <Select id="ageBand" name="ageBand" defaultValue={item.ageBand}>
+          {Object.entries(AGE_BANDS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </Select>
+      </Field>
 
       <Field
         label="Who sees it"
@@ -150,30 +151,30 @@ export function ContentForm({ item }: { item: ContentDraft }) {
         </Select>
       </Field>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field
-          label="Themes"
-          htmlFor="themeTags"
-          hint="Comma separated, e.g. family, routine"
-        >
-          <Input
-            id="themeTags"
-            name="themeTags"
-            defaultValue={item.themeTags.join(", ")}
-          />
-        </Field>
-        <Field
-          label="Grammar"
-          htmlFor="grammarTags"
-          hint="Comma separated, e.g. simple present"
-        >
-          <Input
-            id="grammarTags"
-            name="grammarTags"
-            defaultValue={item.grammarTags.join(", ")}
-          />
-        </Field>
-      </div>
+      <Field
+        label="Tags"
+        htmlFor="tags"
+        hint="Comma separated. Whatever helps you find it again — family, simple present, easy."
+      >
+        <Input id="tags" name="tags" defaultValue={item.tags.join(", ")} />
+        {knownTags.length > 0 && (
+          <p className="text-sm text-[var(--ink-faint)]">
+            Already in use:{" "}
+            {knownTags.slice(0, 12).map((t, i) => (
+              <span key={t}>
+                {i > 0 ? ", " : ""}
+                <button
+                  type="button"
+                  className="underline underline-offset-2 hover:text-[var(--ink)]"
+                  onClick={() => addTag(t)}
+                >
+                  {t}
+                </button>
+              </span>
+            ))}
+          </p>
+        )}
+      </Field>
 
       <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface-sunken)] p-4">
         <BodyEditor type={type} value={body} onChange={setBody} />

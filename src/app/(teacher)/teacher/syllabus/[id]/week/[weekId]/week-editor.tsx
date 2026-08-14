@@ -55,12 +55,12 @@ type Session = {
 };
 
 export function WeekEditor({
-  level,
+  tags,
   week,
   sessions,
   practice,
 }: {
-  level: number;
+  tags: string[];
   week: { id: string; weekNumber: number; theme: string; grammarFocus: string };
   sessions: Session[];
   practice: PracticeItem[];
@@ -88,7 +88,7 @@ export function WeekEditor({
         <ClassCard
           key={s.id}
           session={s}
-          level={level}
+          tags={tags}
           pending={pending}
           run={run}
         />
@@ -96,7 +96,7 @@ export function WeekEditor({
 
       <Practice
         weekId={week.id}
-        level={level}
+        tags={tags}
         items={practice}
         pending={pending}
         run={run}
@@ -170,12 +170,12 @@ function WeekHeader({
 
 function ClassCard({
   session,
-  level,
+  tags,
   pending,
   run,
 }: {
   session: Session;
-  level: number;
+  tags: string[];
   pending: boolean;
   run: Run;
 }) {
@@ -304,7 +304,7 @@ function ClassCard({
         {picking ? (
           <ContentPicker
             group="Class material"
-            level={level}
+            tags={tags}
             busy={pending}
             onCancel={() => setPicking(false)}
             onPick={(contentItemId) => {
@@ -354,13 +354,13 @@ function ClassCard({
 
 function Practice({
   weekId,
-  level,
+  tags,
   items,
   pending,
   run,
 }: {
   weekId: string;
-  level: number;
+  tags: string[];
   items: PracticeItem[];
   pending: boolean;
   run: Run;
@@ -416,7 +416,7 @@ function Practice({
       {picking ? (
         <ContentPicker
           group="App practice"
-          level={level}
+          tags={tags}
           busy={pending}
           onCancel={() => setPicking(false)}
           onPick={(contentItemId) => {

@@ -36,6 +36,20 @@
       "when": 1786681325145,
       "tag": "0004_subject_column",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786702092977,
+      "tag": "0005_groovy_bug",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786702112241,
+      "tag": "0006_cute_loners",
+      "breakpoints": true
     }
   ]
 }

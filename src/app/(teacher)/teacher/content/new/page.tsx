@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 
 import { requireTeacher } from "@/lib/session";
 
+import { allTags } from "../actions";
 import { ContentForm } from "../content-form";
 
 export const metadata: Metadata = { title: "New content" };
 
 export default async function NewContentPage() {
   await requireTeacher();
+  const tags = await allTags();
 
   return (
     <div className="space-y-6">
@@ -24,14 +26,13 @@ export default async function NewContentPage() {
           id: null,
           title: "",
           type: "passage",
-          difficultyLevel: 1,
           ageBand: "any",
           audience: "student",
           status: "draft",
-          themeTags: [],
-          grammarTags: [],
+          tags: [],
           body: {},
         }}
+        knownTags={tags.map((t) => t.tag)}
       />
     </div>
   );

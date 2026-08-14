@@ -30,7 +30,7 @@ async function main() {
 
   const [syllabus] = await db
     .insert(syllabi)
-    .values({ name: "__test__ ordering", level: 1 })
+    .values({ name: "__test__ ordering" })
     .returning({ id: syllabi.id });
 
   try {

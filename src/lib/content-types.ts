@@ -49,15 +49,6 @@ export const AUDIENCES = {
   parent: "Parent",
 } as const;
 
-export const LEVELS = [1, 2, 3, 4] as const;
-
-export const LEVEL_NAMES: Record<number, string> = {
-  1: "Level 1 · Foundations",
-  2: "Level 2 · Builders",
-  3: "Level 3 · Explorers",
-  4: "Level 4 · Communicators",
-};
-
 /** Release rules for a material inside a class. */
 export const RELEASE_RULES = {
   before: "Before class",

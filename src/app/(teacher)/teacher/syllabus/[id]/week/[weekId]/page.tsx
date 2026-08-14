@@ -14,6 +14,7 @@ import {
 } from "@/db/schema";
 import { requireTeacher } from "@/lib/session";
 
+import { allTags } from "../../../../content/actions";
 import { ensureClassSessions } from "../../../actions";
 import { WeekEditor } from "./week-editor";
 
@@ -89,6 +90,8 @@ export default async function WeekPage({
     .where(eq(syllabusWeekItems.syllabusWeekId, week.id))
     .orderBy(asc(syllabusWeekItems.sortOrder));
 
+  const tags = await allTags();
+
   return (
     <div className="space-y-6">
       <div>
@@ -102,7 +105,7 @@ export default async function WeekPage({
       </div>
 
       <WeekEditor
-        level={syllabus.level}
+        tags={tags.map((t) => t.tag)}
         week={{
           id: week.id,
           weekNumber: week.weekNumber,

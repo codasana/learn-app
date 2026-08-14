@@ -4,10 +4,10 @@
  * Design notes (see V2/02-App-Build-Spec-v2.md §4 and §5):
  *  - Content items are independent and reusable. They belong to no week.
  *  - A syllabus is an ordered playlist pointing at content items.
- *  - Progress lives on `enrollments` (one child, one level). Class groups are
- *    scheduling only, and are optional — a solo student is the normal case.
- *  - Vocabulary card state keys on the WORD, not the week, so promotion to the
- *    next level never resets a child's memory.
+ *  - Progress lives on `enrollments` (one child, one syllabus). Class groups
+ *    are scheduling only, and optional — a solo student is the normal case.
+ *  - Vocabulary card state keys on the WORD, not the week, so moving a child
+ *    onto a new syllabus never resets their memory.
  */
 
 import {
@@ -366,12 +366,19 @@ export const contentItems = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     type: contentType("type").notNull(),
     title: text("title").notNull(),
-    /** 1..4 — how hard the English is. */
-    difficultyLevel: integer("difficulty_level").notNull(),
-    /** How mature the topic is. Independent of difficulty. */
+    /** How mature the topic is. Nothing to do with how hard the English is. */
     ageBand: ageBand("age_band").notNull().default("any"),
-    themeTags: text("theme_tags").array().notNull().default([]),
-    grammarTags: text("grammar_tags").array().notNull().default([]),
+
+    /**
+     * Free-form, teacher-chosen: "family", "simple present", "week 1", "easy".
+     *
+     * There is deliberately no difficulty level here. A number 1–4 on every
+     * passage asked the teacher a question she has no basis to answer while
+     * writing, and would have been the default every time. Tags are how the
+     * library gets organised instead — she invents the vocabulary that
+     * matches how she actually thinks, and it costs nothing to change.
+     */
+    tags: text("tags").array().notNull().default([]),
     audience: audience("audience").notNull().default("student"),
     status: publishStatus("status").notNull().default("draft"),
 
@@ -392,18 +399,23 @@ export const contentItems = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (t) => [
-    index("content_items_lookup_idx").on(t.type, t.difficultyLevel, t.status),
-  ],
+  (t) => [index("content_items_lookup_idx").on(t.type, t.status)],
 );
 
 /* ------------------------------------------------------------------ */
 /* Syllabus — an ordered playlist over the library                     */
 /* ------------------------------------------------------------------ */
 
+/**
+ * A named, ordered playlist over the library. Nothing more.
+ *
+ * There is no level column. Which syllabus a child belongs on is the teacher's
+ * judgement, made per child at enrollment — formalising it into levels would
+ * be inventing a rule before anyone has taught enough to know what the rule
+ * should be. The name carries whatever meaning is wanted for now.
+ */
 export const syllabi = pgTable("syllabi", {
   id: uuid("id").primaryKey().defaultRandom(),
-  level: integer("level").notNull(),
   name: text("name").notNull(),
   version: integer("version").notNull().default(1),
   status: publishStatus("status").notNull().default("draft"),
@@ -505,7 +517,7 @@ export const classGroups = pgTable("class_groups", {
 });
 
 /**
- * Progress. One child, one level, one syllabus version, their own week pointer.
+ * Progress. One child, one syllabus version, their own week pointer.
  * `classGroupId` is nullable — a solo student needs no group.
  */
 export const enrollments = pgTable(
@@ -624,7 +636,7 @@ export const rescheduleRequests = pgTable("reschedule_requests", {
 /**
  * Leitner box state for one word, for one child.
  * Keys on `wordKey` (the word itself, normalised) rather than a week-scoped id,
- * so a child's memory follows them across levels.
+ * so a child's memory follows them from one syllabus to the next.
  *
  * Intervals by box: 1 → 1d, 2 → 2d, 3 → 4d, 4 → 8d, 5 → 16d.
  */

@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { contentItems } from "@/db/schema";
 import { requireTeacher } from "@/lib/session";
 
+import { allTags } from "../actions";
 import { ContentForm } from "../content-form";
 
 export const metadata: Metadata = { title: "Edit content" };
@@ -21,6 +22,8 @@ export default async function EditContentPage({
   });
   if (!item) notFound();
 
+  const tags = await allTags();
+
   return (
     <div className="space-y-6">
       <div>
@@ -35,14 +38,13 @@ export default async function EditContentPage({
           id: item.id,
           title: item.title,
           type: item.type,
-          difficultyLevel: item.difficultyLevel,
           ageBand: item.ageBand,
           audience: item.audience,
           status: item.status,
-          themeTags: item.themeTags,
-          grammarTags: item.grammarTags,
+          tags: item.tags,
           body: item.body,
         }}
+        knownTags={tags.map((t) => t.tag)}
       />
     </div>
   );
