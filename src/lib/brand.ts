@@ -32,3 +32,30 @@ export const brand = {
 export function pageTitle(section?: string) {
   return section ? `${section} · ${brand.titleSuffix}` : brand.titleSuffix;
 }
+
+/**
+ * What we call people, in user-facing copy only.
+ *
+ * The database, the route group and the `role` enum stay on "teacher" — those
+ * are internal names, understood by every developer and by Better Auth, and
+ * renaming them buys nothing. What a parent reads is a separate decision, and
+ * it lives here so it can change in one edit on any day.
+ *
+ * Same rule as the brand name: never hardcode these words in a component,
+ * an email, or a document template.
+ */
+export const people = {
+  /** Sheeba, and anyone hired later. */
+  teacher: "teacher",
+  teachers: "teachers",
+  Teacher: "Teacher",
+  Teachers: "Teachers",
+
+  /** The learner. "Student" in copy to parents, "you" in copy to the child. */
+  student: "student",
+  students: "students",
+
+  /** The paying account holder. */
+  parent: "parent",
+  parents: "parents",
+} as const;
