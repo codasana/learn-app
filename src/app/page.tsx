@@ -262,10 +262,16 @@ function Teacher() {
             writing herself. Nothing is handed to an assistant, and nothing is
             marked by a machine.
           </p>
+          {/*
+            No waiting list. There isn't one, and inventing scarcity is the
+            exact sales move this programme is meant to be the opposite of —
+            a parent who later finds out would be right to mind. The limit is
+            real on its own and says the same thing honestly.
+          */}
           <p className="mt-4 text-lg text-[var(--ink-muted)]">
-            That is also the limit: she can only take a small number of
-            children. It is the reason this works, and the reason there is a
-            waiting list.
+            That is also the limit: she can only teach a small number of
+            children at a time. It is the reason this works, and the reason we
+            take on very few at once.
           </p>
         </div>
       </div>
