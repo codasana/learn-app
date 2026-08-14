@@ -1,0 +1,579 @@
+/**
+ * English Ladder — database schema
+ *
+ * Design notes (see V2/02-App-Build-Spec-v2.md §4 and §5):
+ *  - Content items are independent and reusable. They belong to no week.
+ *  - A syllabus is an ordered playlist pointing at content items.
+ *  - Progress lives on `enrollments` (one child, one level). Class groups are
+ *    scheduling only, and are optional — a solo student is the normal case.
+ *  - Vocabulary card state keys on the WORD, not the week, so promotion to the
+ *    next level never resets a child's memory.
+ */
+
+import {
+  boolean,
+  date,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from "drizzle-orm/pg-core";
+
+/* ------------------------------------------------------------------ */
+/* Enums                                                               */
+/* ------------------------------------------------------------------ */
+
+export const userRole = pgEnum("user_role", ["parent", "teacher", "owner"]);
+
+export const ageBand = pgEnum("age_band", ["8_9", "10_11", "any"]);
+
+export const contentType = pgEnum("content_type", [
+  "passage",
+  "slides",
+  "worksheet",
+  "image",
+  "audio",
+  "video",
+  "activity",
+  "vocab_set",
+  "quiz",
+  "sentence_builder",
+  "listening",
+  "writing_task",
+]);
+
+export const audience = pgEnum("audience", ["teacher", "student", "parent"]);
+
+export const publishStatus = pgEnum("publish_status", ["draft", "published"]);
+
+/** When a class material becomes visible to the student. */
+export const releaseRule = pgEnum("release_rule", [
+  "before",
+  "during",
+  "after",
+  "never",
+]);
+
+export const enrollmentStatus = pgEnum("enrollment_status", [
+  "active",
+  "completed",
+  "paused",
+  "withdrawn",
+]);
+
+export const scheduledClassStatus = pgEnum("scheduled_class_status", [
+  "scheduled",
+  "completed",
+  "cancelled",
+  "rescheduled",
+]);
+
+export const attendanceStatus = pgEnum("attendance_status", [
+  "present",
+  "absent",
+  "cancelled",
+]);
+
+export const rescheduleStatus = pgEnum("reschedule_status", [
+  "pending",
+  "approved",
+  "declined",
+]);
+
+export const activityKind = pgEnum("activity_kind", [
+  "reading",
+  "listening",
+  "sentence_builder",
+  "quiz",
+]);
+
+export const writingStatus = pgEnum("writing_status", [
+  "submitted",
+  "ai_drafted",
+  "released",
+  "redrafted",
+]);
+
+export const documentKind = pgEnum("document_kind", [
+  "certificate",
+  "term_report",
+  "midterm_report",
+  "placement_report",
+  "achievement_card",
+  "share_card",
+]);
+
+/* ------------------------------------------------------------------ */
+/* Auth — Better Auth owns these four tables                           */
+/* ------------------------------------------------------------------ */
+
+export const users = pgTable("users", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  emailVerified: boolean("email_verified").notNull().default(false),
+  image: text("image"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+
+  // English Ladder additions
+  role: userRole("role").notNull().default("parent"),
+  pinHash: text("pin_hash"),
+  /** IANA timezone, e.g. "Asia/Dubai". All class times render in this zone. */
+  timezone: text("timezone").notNull().default("Asia/Kolkata"),
+  whatsapp: text("whatsapp"),
+});
+
+export const sessions = pgTable("sessions", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const accounts = pgTable("accounts", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  accountId: text("account_id").notNull(),
+  providerId: text("provider_id").notNull(),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  accessTokenExpiresAt: timestamp("access_token_expires_at"),
+  refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+  scope: text("scope"),
+  idToken: text("id_token"),
+  password: text("password"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const verifications = pgTable("verifications", {
+  id: text("id").primaryKey(),
+  identifier: text("identifier").notNull(),
+  value: text("value").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+/* ------------------------------------------------------------------ */
+/* Children                                                            */
+/* ------------------------------------------------------------------ */
+
+export const childProfiles = pgTable(
+  "child_profiles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    parentId: text("parent_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** First name only. No surname is ever stored. */
+    firstName: text("first_name").notNull(),
+    /** One of eight built-in avatars, by key. No photo of the child. */
+    avatar: text("avatar").notNull().default("fox"),
+    ageBand: ageBand("age_band").notNull().default("8_9"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("child_profiles_parent_idx").on(t.parentId)],
+);
+
+/* ------------------------------------------------------------------ */
+/* Content library — items are independent and reusable                */
+/* ------------------------------------------------------------------ */
+
+export const contentItems = pgTable(
+  "content_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    type: contentType("type").notNull(),
+    title: text("title").notNull(),
+    /** 1..4 — how hard the English is. */
+    difficultyLevel: integer("difficulty_level").notNull(),
+    /** How mature the topic is. Independent of difficulty. */
+    ageBand: ageBand("age_band").notNull().default("any"),
+    themeTags: text("theme_tags").array().notNull().default([]),
+    grammarTags: text("grammar_tags").array().notNull().default([]),
+    audience: audience("audience").notNull().default("student"),
+    status: publishStatus("status").notNull().default("draft"),
+    /** Type-specific payload. See spec §4.2. */
+    body: jsonb("body").notNull().default({}),
+    /** R2 key for slides / worksheet / image / audio / video. */
+    fileUrl: text("file_url"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("content_items_lookup_idx").on(t.type, t.difficultyLevel, t.status),
+  ],
+);
+
+/* ------------------------------------------------------------------ */
+/* Syllabus — an ordered playlist over the library                     */
+/* ------------------------------------------------------------------ */
+
+export const syllabi = pgTable("syllabi", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  level: integer("level").notNull(),
+  name: text("name").notNull(),
+  version: integer("version").notNull().default(1),
+  status: publishStatus("status").notNull().default("draft"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const syllabusWeeks = pgTable(
+  "syllabus_weeks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    syllabusId: uuid("syllabus_id")
+      .notNull()
+      .references(() => syllabi.id, { onDelete: "cascade" }),
+    weekNumber: integer("week_number").notNull(),
+    theme: text("theme").notNull(),
+    grammarFocus: text("grammar_focus"),
+  },
+  (t) => [unique("syllabus_week_unique").on(t.syllabusId, t.weekNumber)],
+);
+
+/** The child's self-study items for a week. */
+export const syllabusWeekItems = pgTable(
+  "syllabus_week_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    syllabusWeekId: uuid("syllabus_week_id")
+      .notNull()
+      .references(() => syllabusWeeks.id, { onDelete: "cascade" }),
+    contentItemId: uuid("content_item_id")
+      .notNull()
+      .references(() => contentItems.id, { onDelete: "restrict" }),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [index("syllabus_week_items_week_idx").on(t.syllabusWeekId)],
+);
+
+/** Class 1 and Class 2 of a week. */
+export const classSessions = pgTable(
+  "class_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    syllabusWeekId: uuid("syllabus_week_id")
+      .notNull()
+      .references(() => syllabusWeeks.id, { onDelete: "cascade" }),
+    classNumber: integer("class_number").notNull(), // 1 = input, 2 = output
+    title: text("title").notNull(),
+    planMd: text("plan_md"),
+  },
+  (t) => [unique("class_session_unique").on(t.syllabusWeekId, t.classNumber)],
+);
+
+/**
+ * The ordered material list for one class. A class holds as many materials as
+ * the teacher wants — slides, worksheet, passage, activity — each with its own
+ * audience and release rule.
+ */
+export const classSessionMaterials = pgTable(
+  "class_session_materials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    classSessionId: uuid("class_session_id")
+      .notNull()
+      .references(() => classSessions.id, { onDelete: "cascade" }),
+    contentItemId: uuid("content_item_id")
+      .notNull()
+      .references(() => contentItems.id, { onDelete: "restrict" }),
+    sortOrder: integer("sort_order").notNull().default(0),
+    /** Overrides the content item's own audience for this class only. */
+    audienceOverride: audience("audience_override"),
+    release: releaseRule("release").notNull().default("during"),
+    /** Teacher flips this live during class for `release = 'during'`. */
+    isRevealed: boolean("is_revealed").notNull().default(false),
+  },
+  (t) => [index("class_materials_session_idx").on(t.classSessionId)],
+);
+
+/* ------------------------------------------------------------------ */
+/* Enrollments (progress) and class groups (scheduling)                */
+/* ------------------------------------------------------------------ */
+
+/** Scheduling only — who shares a live class slot. Optional. */
+export const classGroups = pgTable("class_groups", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  meetingUrl: text("meeting_url"),
+  timezone: text("timezone").notNull().default("Asia/Kolkata"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+/**
+ * Progress. One child, one level, one syllabus version, their own week pointer.
+ * `classGroupId` is nullable — a solo student needs no group.
+ */
+export const enrollments = pgTable(
+  "enrollments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    childId: uuid("child_id")
+      .notNull()
+      .references(() => childProfiles.id, { onDelete: "cascade" }),
+    syllabusId: uuid("syllabus_id")
+      .notNull()
+      .references(() => syllabi.id, { onDelete: "restrict" }),
+    classGroupId: uuid("class_group_id").references(() => classGroups.id, {
+      onDelete: "set null",
+    }),
+    startDate: date("start_date").notNull(),
+    currentWeek: integer("current_week").notNull().default(1),
+    status: enrollmentStatus("status").notNull().default("active"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("enrollments_child_idx").on(t.childId),
+    index("enrollments_status_idx").on(t.status),
+  ],
+);
+
+/** Swap or add a single item for a single child's week. Escape hatch. */
+export const enrollmentItemOverrides = pgTable("enrollment_item_overrides", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  enrollmentId: uuid("enrollment_id")
+    .notNull()
+    .references(() => enrollments.id, { onDelete: "cascade" }),
+  syllabusWeekId: uuid("syllabus_week_id")
+    .notNull()
+    .references(() => syllabusWeeks.id, { onDelete: "cascade" }),
+  /** Null means a pure addition rather than a replacement. */
+  replacesContentItemId: uuid("replaces_content_item_id").references(
+    () => contentItems.id,
+    { onDelete: "cascade" },
+  ),
+  contentItemId: uuid("content_item_id")
+    .notNull()
+    .references(() => contentItems.id, { onDelete: "restrict" }),
+  note: text("note"),
+});
+
+/* ------------------------------------------------------------------ */
+/* Scheduling                                                          */
+/* ------------------------------------------------------------------ */
+
+export const scheduledClasses = pgTable(
+  "scheduled_classes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Either a group class or a solo class — exactly one is set. */
+    classGroupId: uuid("class_group_id").references(() => classGroups.id, {
+      onDelete: "cascade",
+    }),
+    enrollmentId: uuid("enrollment_id").references(() => enrollments.id, {
+      onDelete: "cascade",
+    }),
+    syllabusWeekId: uuid("syllabus_week_id").references(() => syllabusWeeks.id, {
+      onDelete: "set null",
+    }),
+    classNumber: integer("class_number"), // 1 or 2
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    durationMin: integer("duration_min").notNull().default(45),
+    meetingUrl: text("meeting_url"),
+    status: scheduledClassStatus("status").notNull().default("scheduled"),
+    teacherRecapMd: text("teacher_recap_md"),
+  },
+  (t) => [index("scheduled_classes_starts_idx").on(t.startsAt)],
+);
+
+export const attendance = pgTable("attendance", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  scheduledClassId: uuid("scheduled_class_id")
+    .notNull()
+    .references(() => scheduledClasses.id, { onDelete: "cascade" }),
+  childId: uuid("child_id")
+    .notNull()
+    .references(() => childProfiles.id, { onDelete: "cascade" }),
+  status: attendanceStatus("status").notNull(),
+  markedAt: timestamp("marked_at").notNull().defaultNow(),
+});
+
+export const rescheduleRequests = pgTable("reschedule_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  scheduledClassId: uuid("scheduled_class_id")
+    .notNull()
+    .references(() => scheduledClasses.id, { onDelete: "cascade" }),
+  requestedBy: text("requested_by")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  proposedStartsAt: timestamp("proposed_starts_at", {
+    withTimezone: true,
+  }).notNull(),
+  reason: text("reason"),
+  status: rescheduleStatus("status").notNull().default("pending"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  respondedAt: timestamp("responded_at"),
+});
+
+/* ------------------------------------------------------------------ */
+/* Practice and progress                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Leitner box state for one word, for one child.
+ * Keys on `wordKey` (the word itself, normalised) rather than a week-scoped id,
+ * so a child's memory follows them across levels.
+ *
+ * Intervals by box: 1 → 1d, 2 → 2d, 3 → 4d, 4 → 8d, 5 → 16d.
+ */
+export const cardStates = pgTable(
+  "card_states",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    childId: uuid("child_id")
+      .notNull()
+      .references(() => childProfiles.id, { onDelete: "cascade" }),
+    wordKey: text("word_key").notNull(),
+    /** Denormalised for rendering; the vocab_set item that introduced it. */
+    sourceItemId: uuid("source_item_id").references(() => contentItems.id, {
+      onDelete: "set null",
+    }),
+    box: integer("box").notNull().default(1),
+    dueDate: date("due_date").notNull(),
+    correctStreak: integer("correct_streak").notNull().default(0),
+    totalReviews: integer("total_reviews").notNull().default(0),
+    totalCorrect: integer("total_correct").notNull().default(0),
+    /** Additive only — never set back to false once true. */
+    isMastered: boolean("is_mastered").notNull().default(false),
+    lastReviewedAt: timestamp("last_reviewed_at"),
+  },
+  (t) => [
+    unique("card_states_child_word_unique").on(t.childId, t.wordKey),
+    index("card_states_due_idx").on(t.childId, t.dueDate),
+  ],
+);
+
+export const activityCompletions = pgTable(
+  "activity_completions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    childId: uuid("child_id")
+      .notNull()
+      .references(() => childProfiles.id, { onDelete: "cascade" }),
+    kind: activityKind("kind").notNull(),
+    contentItemId: uuid("content_item_id").references(() => contentItems.id, {
+      onDelete: "set null",
+    }),
+    score: integer("score"),
+    total: integer("total"),
+    /** e.g. words the child tapped in a passage, for teacher visibility. */
+    meta: jsonb("meta").notNull().default({}),
+    completedAt: timestamp("completed_at").notNull().defaultNow(),
+  },
+  (t) => [index("activity_completions_child_idx").on(t.childId, t.completedAt)],
+);
+
+export const dailyProgress = pgTable(
+  "daily_progress",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    childId: uuid("child_id")
+      .notNull()
+      .references(() => childProfiles.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    vocabDone: boolean("vocab_done").notNull().default(false),
+    activitiesDone: integer("activities_done").notNull().default(0),
+    todayCompleted: boolean("today_completed").notNull().default(false),
+  },
+  (t) => [unique("daily_progress_child_date_unique").on(t.childId, t.date)],
+);
+
+/* ------------------------------------------------------------------ */
+/* Writing                                                             */
+/* ------------------------------------------------------------------ */
+
+export const writingSubmissions = pgTable(
+  "writing_submissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    childId: uuid("child_id")
+      .notNull()
+      .references(() => childProfiles.id, { onDelete: "cascade" }),
+    writingTaskId: uuid("writing_task_id")
+      .notNull()
+      .references(() => contentItems.id, { onDelete: "restrict" }),
+    body: text("body"),
+    /** Private R2 object — may show the child's handwriting. Signed URLs only. */
+    photoUrl: text("photo_url"),
+    planningNotes: jsonb("planning_notes").notNull().default({}),
+    status: writingStatus("status").notNull().default("submitted"),
+    /**
+     * NEVER select this column on a child- or parent-facing endpoint.
+     * Teacher review and release is mandatory.
+     */
+    aiDraft: text("ai_draft"),
+    teacherFeedback: text("teacher_feedback"),
+    teacherVoiceUrl: text("teacher_voice_url"),
+    redraftBody: text("redraft_body"),
+    submittedAt: timestamp("submitted_at").notNull().defaultNow(),
+    releasedAt: timestamp("released_at"),
+  },
+  (t) => [
+    index("writing_submissions_status_idx").on(t.status),
+    index("writing_submissions_child_idx").on(t.childId),
+  ],
+);
+
+export const parentNotes = pgTable("parent_notes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  childId: uuid("child_id")
+    .notNull()
+    .references(() => childProfiles.id, { onDelete: "cascade" }),
+  weekNumber: integer("week_number").notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+/* ------------------------------------------------------------------ */
+/* Generated documents (Automette) and achievements                    */
+/* ------------------------------------------------------------------ */
+
+export const generatedDocuments = pgTable("generated_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  childId: uuid("child_id").references(() => childProfiles.id, {
+    onDelete: "cascade",
+  }),
+  enrollmentId: uuid("enrollment_id").references(() => enrollments.id, {
+    onDelete: "cascade",
+  }),
+  kind: documentKind("kind").notNull(),
+  autometteTemplateId: text("automette_template_id"),
+  payload: jsonb("payload").notNull().default({}),
+  fileUrl: text("file_url"),
+  isReleased: boolean("is_released").notNull().default(false),
+  generatedAt: timestamp("generated_at").notNull().defaultNow(),
+});
+
+/** Phase 2. Additive only — never removed, never compared between children. */
+export const achievements = pgTable(
+  "achievements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    childId: uuid("child_id")
+      .notNull()
+      .references(() => childProfiles.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    threshold: integer("threshold"),
+    cardUrl: text("card_url"),
+    earnedAt: timestamp("earned_at").notNull().defaultNow(),
+  },
+  (t) => [unique("achievement_unique").on(t.childId, t.kind, t.threshold)],
+);
