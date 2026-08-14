@@ -4,9 +4,10 @@ import { Figtree, Outfit, Plus_Jakarta_Sans } from "next/font/google";
 /**
  * Three style directions, rendered rather than described.
  *
- * Temporary. This route exists to pick a direction and then gets deleted —
- * arguing about typefaces in prose wastes everyone's time when the thing can
- * just be looked at.
+ * Kept on purpose, so the choice can be shown to someone else and revisited.
+ * Arguing about typefaces in prose wastes everyone's time when the thing can
+ * just be looked at. B won and is now the real design; A and C stay here as
+ * the record of what was rejected. Do not delete without asking.
  *
  * Each block is self-contained: its own fonts, its own colours as inline
  * custom properties, no dependency on globals.css. Whichever wins becomes the

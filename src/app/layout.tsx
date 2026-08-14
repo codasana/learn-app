@@ -1,27 +1,19 @@
 import type { Metadata } from "next";
-import { Fraunces, Inter } from "next/font/google";
+import { Figtree } from "next/font/google";
 
 import { brand, pageTitle } from "@/lib/brand";
 
 import "./globals.css";
 
 /**
- * Fraunces for headlines. A serif with a little wonk in it — slightly bookish,
- * slightly hand-cut, and nothing like the geometric sans every other learning
- * company sets its promises in. A page claiming that one teacher writes
- * everything herself should look written, not deployed.
+ * One family, every weight. Figtree is warm without tipping into the rounded
+ * faces that read as children's television, and it stays legible from a 14px
+ * label to a 60px headline — which matters when the same tokens dress both a
+ * marketing page and a teacher's admin screen.
  */
-const fraunces = Fraunces({
+const figtree = Figtree({
   subsets: ["latin"],
-  variable: "--font-fraunces",
-  display: "swap",
-  axes: ["SOFT", "WONK"],
-});
-
-/** Inter for everything else, where being invisible is the whole job. */
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-figtree",
   display: "swap",
 });
 
@@ -35,7 +27,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`h-full ${fraunces.variable} ${inter.variable}`}>
+    <html lang="en" className={`h-full ${figtree.variable}`}>
       <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );

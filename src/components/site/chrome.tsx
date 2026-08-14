@@ -3,9 +3,9 @@ import Link from "next/link";
 import { brand } from "@/lib/brand";
 
 /**
- * Site header. A wordmark in the display face and nothing else — no logo mark,
- * because the name is a placeholder and a mark drawn for a placeholder is
- * effort spent twice. Renaming stays a single edit to lib/brand.ts.
+ * Site header. A wordmark and nothing else — no logo mark, because the name is
+ * a placeholder and a mark drawn for a placeholder is effort spent twice.
+ * Renaming stays a single edit to lib/brand.ts.
  */
 export function SiteHeader() {
   return (
@@ -13,7 +13,7 @@ export function SiteHeader() {
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-5">
         <Link
           href="/"
-          className="font-[family-name:var(--font-display)] text-xl font-semibold tracking-tight"
+          className="text-xl font-bold tracking-tight"
         >
           {brand.name}
         </Link>
@@ -39,7 +39,7 @@ export function SiteFooter() {
       <div className="mx-auto w-full max-w-5xl px-6 py-10">
         <div className="flex flex-wrap items-start justify-between gap-8">
           <div>
-            <p className="font-[family-name:var(--font-display)] text-lg font-semibold">
+            <p className="text-lg font-bold">
               {brand.name}
             </p>
             <p className="mt-1 max-w-sm text-sm text-[var(--ink-muted)]">
