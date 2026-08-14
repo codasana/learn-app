@@ -15,6 +15,13 @@
       "when": 1786678448440,
       "tag": "0001_leads_and_placement",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786680392887,
+      "tag": "0002_student_accounts",
+      "breakpoints": true
     }
   ]
 }

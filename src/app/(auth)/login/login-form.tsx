@@ -18,17 +18,21 @@ export function LoginForm() {
     setPending(true);
 
     const form = new FormData(e.currentTarget);
-    const { error } = await signIn.email({
-      email: String(form.get("email") ?? ""),
-      password: String(form.get("password") ?? ""),
-    });
+    const identifier = String(form.get("identifier") ?? "").trim();
+    const password = String(form.get("password") ?? "");
+
+    // Parents and staff sign in with an email; children sign in with the
+    // username their parent set for them, since they may have no email at all.
+    const { error } = identifier.includes("@")
+      ? await signIn.email({ email: identifier, password })
+      : await signIn.username({ username: identifier.toLowerCase(), password });
 
     setPending(false);
 
     if (error) {
       // Deliberately does not distinguish "no such account" from "wrong
-      // password" — that difference tells an attacker which emails exist.
-      setMessage("That email and password don't match. Please try again.");
+      // password" — that difference tells an attacker which accounts exist.
+      setMessage("That didn't match. Please check and try again.");
       return;
     }
 
@@ -40,12 +44,18 @@ export function LoginForm() {
     <form onSubmit={onSubmit} className="space-y-4">
       {message ? <Notice>{message}</Notice> : null}
 
-      <Field label="Email" htmlFor="email">
+      <Field
+        label="Email or username"
+        htmlFor="identifier"
+        hint="Parents use their email. Children use the username their parent set up."
+      >
         <Input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
+          id="identifier"
+          name="identifier"
+          type="text"
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
           required
           autoFocus
         />

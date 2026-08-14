@@ -16,7 +16,8 @@ export default async function LoginPage() {
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold text-[var(--ink)]">Sign in</h1>
         <p className="text-[var(--ink-muted)]">
-          Use the email address your welcome message was sent to.
+          Parents, use your email address. Children, use the username your
+          parent set up for you.
         </p>
       </div>
 

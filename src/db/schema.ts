@@ -28,7 +28,12 @@ import {
 /* Enums                                                               */
 /* ------------------------------------------------------------------ */
 
-export const userRole = pgEnum("user_role", ["parent", "teacher", "owner"]);
+export const userRole = pgEnum("user_role", [
+  "parent",
+  "student",
+  "teacher",
+  "owner",
+]);
 
 export const ageBand = pgEnum("age_band", ["8_9", "10_11", "any"]);
 
@@ -135,13 +140,32 @@ export const leadStatus = pgEnum("lead_status", [
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
+
+  /**
+   * Better Auth requires an email on every user, but a child account is not
+   * required to have one — collecting a child's email is the thing that
+   * triggers COPPA/GDPR-K/DPDP obligations, so blank is the intended default.
+   *
+   * Children without an email therefore get a placeholder on the RFC 2606
+   * reserved `.invalid` TLD, which is guaranteed never to resolve and so can
+   * never accidentally receive mail. Use `hasRealEmail()` in src/lib/users.ts
+   * rather than testing this column directly, and never send to it.
+   */
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
+
+  /**
+   * Set for student accounts (managed by the `username` Better Auth plugin).
+   * A parent creates it, so it should not be identifying — first name and a
+   * number is fine, full names are not.
+   */
+  username: text("username").unique(),
+  displayUsername: text("display_username"),
+
   image: text("image"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 
-  // English Ladder additions
   role: userRole("role").notNull().default("parent"),
   pinHash: text("pin_hash"),
   /** IANA timezone, e.g. "Asia/Dubai". All class times render in this zone. */
@@ -197,9 +221,18 @@ export const childProfiles = pgTable(
   "child_profiles",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    /** The paying account. Billing, reports, and consent always live here. */
     parentId: text("parent_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+
+    /**
+     * The child's own sign-in, created BY THE PARENT. Nullable: a child can
+     * always be reached through the parent's session and the profile picker,
+     * so a direct login is optional. Both routes work.
+     */
+    userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+
     /** First name only. No surname is ever stored. */
     firstName: text("first_name").notNull(),
     /** One of eight built-in avatars, by key. No photo of the child. */
@@ -207,7 +240,10 @@ export const childProfiles = pgTable(
     ageBand: ageBand("age_band").notNull().default("8_9"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [index("child_profiles_parent_idx").on(t.parentId)],
+  (t) => [
+    index("child_profiles_parent_idx").on(t.parentId),
+    unique("child_profiles_user_unique").on(t.userId),
+  ],
 );
 
 /* ------------------------------------------------------------------ */

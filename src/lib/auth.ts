@@ -1,15 +1,24 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
+import { username } from "better-auth/plugins";
 
 import { db, schema } from "@/db";
 
 /**
- * The parent is the account holder. Children are rows in `child_profiles`
- * owned by the parent — they never have emails or passwords.
+ * The parent is the paying account holder — billing, reports, and the consent
+ * record always live there.
  *
- * The 4-digit PIN that gates the exit from kid mode is NOT an auth concern;
- * it is a UI gate built on `users.pinHash` (see src/lib/pin.ts).
+ * A child may ALSO have their own sign-in, created by the parent: a username,
+ * a password, and an optional email. Both routes work — a child can sign in
+ * directly, or enter through the parent's session and the profile picker.
+ * See src/lib/users.ts for why a child's email is optional by default.
+ *
+ * There is no public sign-up. Parents are invited after enrolling; children are
+ * created by their parent; staff come from scripts/seed-owner.ts.
+ *
+ * The 4-digit PIN gating the exit from kid mode is NOT an auth concern — it is
+ * a UI gate over `users.pinHash` (see src/lib/pin.ts).
  */
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -67,7 +76,15 @@ export const auth = betterAuth({
     max: 20,
   },
 
-  plugins: [nextCookies()],
+  plugins: [
+    // Lets a child sign in with the username their parent set, rather than an
+    // email they may not have.
+    username({
+      minUsernameLength: 3,
+      maxUsernameLength: 30,
+    }),
+    nextCookies(),
+  ],
 });
 
 export type Session = typeof auth.$Infer.Session;
