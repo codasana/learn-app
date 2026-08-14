@@ -69,6 +69,13 @@ export const publishStatus = pgEnum("publish_status", ["draft", "published"]);
  */
 export const contentScope = pgEnum("content_scope", ["central", "private"]);
 
+/**
+ * Everything today is English, and will be for a long while. This exists only
+ * so a second subject never requires touching every content query — adding a
+ * value here is cheap, retrofitting the column would not be.
+ */
+export const subject = pgEnum("subject", ["english"]);
+
 /** When a class material becomes visible to the student. */
 export const releaseRule = pgEnum("release_rule", [
   "before",
@@ -376,6 +383,7 @@ export const contentItems = pgTable(
       onDelete: "set null",
     }),
     scope: contentScope("scope").notNull().default("central"),
+    subject: subject("subject").notNull().default("english"),
 
     /** Type-specific payload. See spec §4.2. */
     body: jsonb("body").notNull().default({}),
@@ -404,6 +412,7 @@ export const syllabi = pgTable("syllabi", {
     onDelete: "set null",
   }),
   scope: contentScope("scope").notNull().default("central"),
+  subject: subject("subject").notNull().default("english"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

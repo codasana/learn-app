@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { contentItems } from "@/db/schema";
+import { readyToPublish } from "@/lib/content-schemas";
 import { CONTENT_TYPE_KEYS } from "@/lib/content-types";
 import { requireTeacher } from "@/lib/session";
 
@@ -63,7 +64,7 @@ export async function saveContentItem(
   id: string | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  await requireTeacher();
+  const teacher = await requireTeacher();
 
   const parsed = itemSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
@@ -71,15 +72,22 @@ export async function saveContentItem(
   }
   const v = parsed.data;
 
-  // The body is edited as JSON for now. A per-type form replaces this once the
-  // shapes settle — but the teacher must never be blocked on that.
+  // The body arrives already structured from the per-type editor.
   let body: unknown = {};
   if (v.body?.trim()) {
     try {
       body = JSON.parse(v.body);
     } catch {
-      return { ok: false, error: "The details box isn't valid JSON yet." };
+      return { ok: false, error: "Something went wrong saving the details." };
     }
+  }
+
+  // Drafts always save, however incomplete — being unable to save half-finished
+  // work is how people stop using a tool. Completeness is checked only when
+  // publishing, since that is what children can see.
+  if (v.status === "published") {
+    const problem = readyToPublish(v.type, body);
+    if (problem) return { ok: false, error: problem };
   }
 
   const values = {
@@ -101,9 +109,10 @@ export async function saveContentItem(
         .set(values)
         .where(eq(contentItems.id, id))
         .returning({ id: contentItems.id })
-    : await db.insert(contentItems).values(values).returning({
-        id: contentItems.id,
-      });
+    : await db
+        .insert(contentItems)
+        .values({ ...values, createdBy: teacher.id })
+        .returning({ id: contentItems.id });
 
   revalidatePath("/teacher/content");
   return { ok: true, id: row.id };

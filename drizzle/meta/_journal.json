@@ -29,6 +29,13 @@
       "when": 1786681118445,
       "tag": "0003_teacher_ownership",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786681325145,
+      "tag": "0004_subject_column",
+      "breakpoints": true
     }
   ]
 }

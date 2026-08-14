@@ -3,8 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { BodyEditor } from "@/components/content/body-editor";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Notice, Select, Textarea } from "@/components/ui/field";
+import { Field, Input, Notice, Select } from "@/components/ui/field";
+import { parseBody } from "@/lib/content-schemas";
 import {
   AGE_BANDS,
   AUDIENCES,
@@ -35,12 +37,27 @@ export function ContentForm({ item }: { item: ContentDraft }) {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  // Type and body are controlled together: switching the type re-parses the
+  // body so the new editor always gets a shape it understands.
+  const [type, setType] = useState(item.type);
+  const [body, setBody] = useState<Record<string, unknown>>(
+    () => parseBody(item.type, item.body) as Record<string, unknown>,
+  );
+
+  function onTypeChange(next: string) {
+    setType(next);
+    setBody(parseBody(next, body) as Record<string, unknown>);
+  }
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMessage(null);
     setPending(true);
 
-    const result = await saveContentItem(item.id, new FormData(e.currentTarget));
+    const formData = new FormData(e.currentTarget);
+    formData.set("body", JSON.stringify(body));
+
+    const result = await saveContentItem(item.id, formData);
     setPending(false);
 
     if (!result.ok) {
@@ -67,7 +84,12 @@ export function ContentForm({ item }: { item: ContentDraft }) {
       </Field>
 
       <Field label="What kind of thing is it?" htmlFor="type">
-        <Select id="type" name="type" defaultValue={item.type}>
+        <Select
+          id="type"
+          name="type"
+          value={type}
+          onChange={(e) => onTypeChange(e.target.value)}
+        >
           {CONTENT_GROUPS.map((group) => (
             <optgroup key={group} label={group}>
               {contentTypesInGroup(group).map((key) => (
@@ -153,19 +175,9 @@ export function ContentForm({ item }: { item: ContentDraft }) {
         </Field>
       </div>
 
-      <Field
-        label="Details"
-        htmlFor="body"
-        hint="The passage text, word list, or questions. A proper form for each kind is coming — for now this is the raw structure."
-      >
-        <Textarea
-          id="body"
-          name="body"
-          rows={14}
-          className="font-mono text-sm"
-          defaultValue={JSON.stringify(item.body ?? {}, null, 2)}
-        />
-      </Field>
+      <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface-sunken)] p-4">
+        <BodyEditor type={type} value={body} onChange={setBody} />
+      </div>
 
       <Field
         label="Status"
