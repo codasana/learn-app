@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { SignOut } from "@/components/ui/sign-out";
 import { brand } from "@/lib/brand";
 import { requireTeacher } from "@/lib/session";
 
@@ -38,7 +39,12 @@ export default async function TeacherLayout({
               </Link>
             ))}
           </nav>
-          <span className="text-sm text-[var(--ink-faint)]">{user.email}</span>
+          <div className="flex items-center gap-2">
+            <span className="hidden text-sm text-[var(--ink-faint)] sm:inline">
+              {user.email}
+            </span>
+            <SignOut />
+          </div>
         </div>
       </header>
 
