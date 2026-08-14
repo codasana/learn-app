@@ -50,6 +50,20 @@
       "when": 1786702112241,
       "tag": "0006_cute_loners",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786703759439,
+      "tag": "0007_slimy_human_torch",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786703810480,
+      "tag": "0008_organic_wiccan",
+      "breakpoints": true
     }
   ]
 }

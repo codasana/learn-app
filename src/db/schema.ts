@@ -133,25 +133,32 @@ export const documentKind = pgEnum("document_kind", [
   "share_card",
 ]);
 
-/** How a lead entered the funnel. Cold traffic takes the tool; warm traffic books. */
-export const leadSource = pgEnum("lead_source", [
-  "tool", // public "check your child's English level" tool
+/** How a family arrived. Cold traffic takes a tool; warm traffic asks. */
+export const enquirySource = pgEnum("enquiry_source", [
+  "tool", // finished a free tool and asked for the full report
+  "demo_form", // "interested in your programme" — no tool involved
   "referral", // word of mouth from an existing parent
-  "direct", // booked straight from the marketing page
   "other",
 ]);
 
-export const leadStatus = pgEnum("lead_status", [
+export const enquiryStatus = pgEnum("enquiry_status", [
   "new",
-  "check_sent",
-  "check_done",
-  "session_booked",
-  "session_done",
+  "class_scheduled",
+  "class_done",
   "report_sent",
   "enrolled",
   "declined",
   "dormant",
 ]);
+
+/**
+ * Which free tool a run belongs to.
+ *
+ * Adding a tool is a value here plus a definition in src/lib/tools — never a
+ * new table. The tools are marketing, they come and go, and none of them may
+ * reach into the programme's own tables.
+ */
+export const toolKind = pgEnum("tool_kind", ["level_check"]);
 
 /* ------------------------------------------------------------------ */
 /* Auth — Better Auth owns these four tables                           */
@@ -267,20 +274,32 @@ export const childProfiles = pgTable(
 );
 
 /* ------------------------------------------------------------------ */
-/* Leads and placement — the funnel BEFORE any account exists          */
+/* The funnel — before any account exists                              */
+/*                                                                     */
+/* Two tables, and they touch nothing below this line. The free tools  */
+/* are marketing: they must be rewritable or deletable without any of  */
+/* it reaching the syllabus, the content library, or a child's         */
+/* progress. Nothing here references those tables, and nothing there   */
+/* references these.                                                   */
 /* ------------------------------------------------------------------ */
 
 /**
- * A family who has shown interest but has not enrolled. No user account exists
- * at this stage, deliberately: asking a parent to create a password before we
- * have delivered any value costs conversions, and if they never enrol we should
- * not be storing an account at all.
+ * A family who has shown interest but has not enrolled.
  *
- * Declined leads are kept as the re-marketing list for the next term, with
- * `purgeAfter` set 12 months out. This retention is disclosed on the form.
+ * No user account exists at this stage, deliberately: asking a parent to set a
+ * password before we have delivered anything costs conversions, and if they
+ * never enrol we should not be holding an account at all.
+ *
+ * Two ways in, one row either way — a child finishing a free tool and asking
+ * for the full report, or a parent filling the "book a demo class" form. The
+ * teacher's remarks after that class are notes on this row; a separate log of
+ * interactions can wait until more than one person is writing them.
+ *
+ * Declined enquiries are kept as the re-marketing list for the next term, with
+ * `purgeAfter` set 12 months out. That retention is disclosed on the form.
  */
-export const leads = pgTable(
-  "leads",
+export const enquiries = pgTable(
+  "enquiries",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     parentName: text("parent_name"),
@@ -293,76 +312,88 @@ export const leads = pgTable(
     childGrade: integer("child_grade"),
 
     timezone: text("timezone").notNull().default("Asia/Kolkata"),
-    source: leadSource("source").notNull().default("direct"),
-    status: leadStatus("status").notNull().default("new"),
+    source: enquirySource("source").notNull().default("demo_form"),
+    status: enquiryStatus("status").notNull().default("new"),
 
-    /** Cal.com booking reference for the free session. */
+    /** Cal.com booking reference for the demo class. */
     calBookingId: text("cal_booking_id"),
-    sessionAt: timestamp("session_at", { withTimezone: true }),
+    classAt: timestamp("class_at", { withTimezone: true }),
 
     /**
-     * What the app's check suggested, versus what the teacher decided.
+     * Where the teacher thinks this child should start.
      *
      * Levels are real in the programme — four of them, with definitions and
      * marketing behind each — and this is where they live: the conversation
-     * with a parent about where their child starts. They are deliberately NOT
-     * a foreign key to anything. Content and syllabi carry no level, so
-     * nothing downstream is constrained by the number chosen here. Aligned in
-     * practice, uncoupled in the schema. Do not "fix" the mismatch.
+     * with a parent. They are deliberately NOT a foreign key. Content and
+     * syllabi carry no level, so nothing downstream is constrained by the
+     * number quoted here. Aligned in practice, uncoupled in the schema.
      */
     suggestedLevel: integer("suggested_level"),
-    finalLevel: integer("final_level"),
-    /** Speaking and writing observations from the live session. */
-    teacherNotes: text("teacher_notes"),
+    startingLevel: integer("starting_level"),
 
+    /** What the teacher saw in the demo class, and anything else worth keeping. */
+    teacherNotes: text("teacher_notes"),
     notes: text("notes"),
+
     /** Set on decline; a scheduled job removes the row after this date. */
     purgeAfter: date("purge_after"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (t) => [
-    index("leads_status_idx").on(t.status),
-    index("leads_email_idx").on(t.parentEmail),
+    index("enquiries_status_idx").on(t.status),
+    index("enquiries_email_idx").on(t.parentEmail),
   ],
 );
 
 /**
- * One run of the public level-check tool.
+ * One run of one free tool. Entirely self-contained.
  *
- * `leadId` is nullable on purpose: the tool is open to anyone with no email
- * required. A row starts anonymous and is linked to a lead only if the parent
- * asks for the full report afterwards. The token in the URL is the only
- * credential — it grants access to this attempt and nothing else.
+ * `responses` and `result` are the whole of it — the questions live in code
+ * (src/lib/tools), the answers and the outcome live here, and neither points
+ * at anything in the programme. A tool can be rewritten or dropped without a
+ * migration touching anything a child is learning from.
+ *
+ * `enquiryId` is nullable on purpose. A run starts anonymous — no email, no
+ * account, that is the entire advantage — and is linked to a family only when
+ * a parent asks for the full report, or when the teacher issues the link
+ * herself to someone who has already enquired.
+ *
+ * **The token in the URL is the only credential.** It grants this one run and
+ * nothing else. That is proportionate to what is behind it — a first name and
+ * a quiz score — and a login here would cost more conversions than it protects
+ * anything. See src/lib/tool-runs.ts for the rules that keep it that way.
  */
-export const placementAttempts = pgTable(
-  "placement_attempts",
+export const toolRuns = pgTable(
+  "tool_runs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    leadId: uuid("lead_id").references(() => leads.id, { onDelete: "cascade" }),
-    /** Long random, unguessable. Not a session — scoped to this attempt only. */
+    tool: toolKind("tool").notNull(),
+
+    enquiryId: uuid("enquiry_id").references(() => enquiries.id, {
+      onDelete: "cascade",
+    }),
+
+    /** 32 random bytes, base64url. Not a session — scoped to this run alone. */
     token: text("token").notNull().unique(),
 
     childFirstName: text("child_first_name"),
     childAgeBand: ageBand("child_age_band"),
 
-    /** Raw answers, for the teacher to inspect during the session. */
+    /** Everything the child did. Shape is the tool's business. */
     responses: jsonb("responses").notNull().default({}),
-    vocabScore: integer("vocab_score"),
-    vocabTotal: integer("vocab_total"),
-    readingScore: integer("reading_score"),
-    readingTotal: integer("reading_total"),
-    listeningScore: integer("listening_score"),
-    listeningTotal: integer("listening_total"),
-
-    /** Provisional only. The teacher makes the real call — see `leads.finalLevel`. */
-    suggestedLevel: integer("suggested_level"),
+    /** Scores, bands, whatever this tool produces. Also the tool's business. */
+    result: jsonb("result").notNull().default({}),
 
     startedAt: timestamp("started_at").notNull().defaultNow(),
     completedAt: timestamp("completed_at"),
+    /** After this the link stops working and we offer a fresh one. */
     expiresAt: timestamp("expires_at").notNull(),
   },
-  (t) => [index("placement_attempts_lead_idx").on(t.leadId)],
+  (t) => [
+    index("tool_runs_enquiry_idx").on(t.enquiryId),
+    index("tool_runs_tool_idx").on(t.tool, t.completedAt),
+  ],
 );
 
 /* ------------------------------------------------------------------ */

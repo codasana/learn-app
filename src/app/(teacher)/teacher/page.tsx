@@ -4,10 +4,11 @@ import Link from "next/link";
 
 import { db } from "@/db";
 import {
+  enquiries,
   childProfiles,
   contentItems,
   enrollments,
-  leads,
+
   syllabi,
   writingSubmissions,
 } from "@/db/schema";
@@ -27,15 +28,14 @@ async function counts() {
     .select({ n: count() })
     .from(enrollments)
     .where(eq(enrollments.status, "active"));
+  const [openEnquiries] = await db
+    .select({ n: count() })
+    .from(enquiries)
+    .where(sql`${enquiries.status} not in ('enrolled','declined','dormant')`);
   const [awaiting] = await db
     .select({ n: count() })
     .from(writingSubmissions)
     .where(sql`${writingSubmissions.status} in ('submitted','ai_drafted')`);
-  const [openLeads] = await db
-    .select({ n: count() })
-    .from(leads)
-    .where(sql`${leads.status} not in ('enrolled','declined','dormant')`);
-
   return {
     items: items.n,
     published: published.n,
@@ -43,7 +43,7 @@ async function counts() {
     children: children.n,
     active: active.n,
     awaiting: awaiting.n,
-    openLeads: openLeads.n,
+    openLeads: openEnquiries.n,
   };
 }
 
@@ -125,7 +125,11 @@ export default async function TeacherHome() {
         <div className="grid gap-3 sm:grid-cols-3">
           <Stat label="Children" value={c.children} href="/teacher/students" />
           <Stat label="Currently learning" value={c.active} />
-          <Stat label="Families deciding" value={c.openLeads} />
+          <Stat
+            label="Families deciding"
+            value={c.openLeads}
+            href="/teacher/enquiries"
+          />
         </div>
       </section>
 

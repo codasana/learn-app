@@ -8,6 +8,7 @@ const nav = [
   { href: "/teacher/content", label: "Content" },
   { href: "/teacher/syllabus", label: "Syllabus" },
   { href: "/teacher/students", label: "Students" },
+  { href: "/teacher/enquiries", label: "Enquiries" },
   { href: "/teacher/writing", label: "Writing" },
 ];
 
