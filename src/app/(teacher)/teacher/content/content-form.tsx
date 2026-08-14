@@ -26,6 +26,7 @@ export type ContentDraft = {
   status: "draft" | "published";
   tags: string[];
   body: unknown;
+  fileUrl: string | null;
 };
 
 export function ContentForm({
@@ -45,6 +46,9 @@ export function ContentForm({
   const [body, setBody] = useState<Record<string, unknown>>(
     () => parseBody(item.type, item.body) as Record<string, unknown>,
   );
+  // Lives on the item rather than in `body`, so a query can find every item
+  // with a file without opening the jsonb.
+  const [fileUrl, setFileUrl] = useState<string | null>(item.fileUrl);
 
   // Clicking a suggestion appends it rather than replacing what is typed —
   // tagging is additive, and losing half-typed input to a stray click is the
@@ -72,6 +76,7 @@ export function ContentForm({
 
     const formData = new FormData(e.currentTarget);
     formData.set("body", JSON.stringify(body));
+    formData.set("fileUrl", fileUrl ?? "");
 
     const result = await saveContentItem(item.id, formData);
     setPending(false);
@@ -177,7 +182,13 @@ export function ContentForm({
       </Field>
 
       <div className="space-y-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface-sunken)] p-4">
-        <BodyEditor type={type} value={body} onChange={setBody} />
+        <BodyEditor
+          type={type}
+          value={body}
+          onChange={setBody}
+          fileUrl={fileUrl}
+          onFileChange={setFileUrl}
+        />
       </div>
 
       <Field

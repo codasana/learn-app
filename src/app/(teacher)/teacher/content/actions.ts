@@ -26,6 +26,7 @@ const itemSchema = z.object({
   status: z.enum(["draft", "published"]),
   tags: z.string().optional(),
   body: z.string().optional(),
+  fileUrl: z.string().optional(),
 });
 
 function splitTags(raw?: string) {
@@ -123,6 +124,7 @@ export async function saveContentItem(
     status: v.status,
     tags: splitTags(v.tags),
     body: body as Record<string, unknown>,
+    fileUrl: v.fileUrl?.trim() || null,
     updatedAt: new Date(),
   };
 

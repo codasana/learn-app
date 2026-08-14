@@ -31,6 +31,7 @@ export default async function NewContentPage() {
           status: "draft",
           tags: [],
           body: {},
+          fileUrl: null,
         }}
         knownTags={tags.map((t) => t.tag)}
       />

@@ -43,6 +43,7 @@ export default async function EditContentPage({
           status: item.status,
           tags: item.tags,
           body: item.body,
+          fileUrl: item.fileUrl,
         }}
         knownTags={tags.map((t) => t.tag)}
       />

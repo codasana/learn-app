@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Label, Textarea } from "@/components/ui/field";
 import type { Question, VocabWord } from "@/lib/content-schemas";
 
+import { FileUpload } from "./file-upload";
 import { QuestionEditor } from "./question-editor";
 import { move, removeAt, Row, RowList, updateAt } from "./repeatable";
 import { VocabEditor } from "./vocab-editor";
@@ -18,10 +19,15 @@ export function BodyEditor({
   type,
   value,
   onChange,
+  fileUrl,
+  onFileChange,
 }: {
   type: string;
   value: Body;
   onChange: (next: Body) => void;
+  /** File-backed types only. Lives on the item, not in `body`. */
+  fileUrl: string | null;
+  onFileChange: (fileUrl: string | null) => void;
 }) {
   const patch = (p: Body) => onChange({ ...value, ...p });
 
@@ -69,6 +75,12 @@ export function BodyEditor({
               onChange={(e) => patch({ transcript: e.target.value })}
               placeholder="Hello! My name is Dev. I am eight years old…"
             />
+          </Field>
+          <Field
+            label="The recording"
+            hint="Read the script aloud into a voice memo on your phone and upload it. Without this the child has nothing to listen to."
+          >
+            <FileUpload type="listening" fileUrl={fileUrl} onChange={onFileChange} />
           </Field>
           <QuestionEditor
             value={(value.questions as Question[]) ?? []}
@@ -157,10 +169,9 @@ export function BodyEditor({
               onChange={(e) => patch({ notes: e.target.value })}
             />
           </Field>
-          <p className="rounded-[var(--radius)] bg-[var(--accent-soft)] px-3 py-2 text-sm text-[var(--accent-ink)]">
-            File upload isn&apos;t connected yet. Export slides from PowerPoint as
-            a PDF and you&apos;ll be able to attach it here shortly.
-          </p>
+          <Field label="The file" hint="Uploads straight from here — it is not sent through the app, so a large deck is fine.">
+            <FileUpload type={type} fileUrl={fileUrl} onChange={onFileChange} />
+          </Field>
         </div>
       );
   }
