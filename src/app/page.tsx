@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { SiteFooter, SiteHeader } from "@/components/site/chrome";
-import { PhotoCluster, PhotoSlot } from "@/components/site/photo-slot";
+import { Panel, PanelCluster } from "@/components/site/panels";
 import { Button } from "@/components/ui/button";
 import { brand } from "@/lib/brand";
 
@@ -19,9 +19,19 @@ import { brand } from "@/lib/brand";
  * with generous rounding and a lot of air. Nothing shouts, and there is not a
  * cartoon anywhere — which is what lets it be warm without being childish.
  *
- * Photographs are deferred, so the panels are carrying the whole feel.
- * PhotoSlot marks where real pictures go.
+ * The colour blocks are decoration and the page is finished as it stands. They
+ * are not placeholders waiting on photographs.
  */
+
+/**
+ * Price is written and ready, but hidden until the figures are decided.
+ *
+ * Flip to true and the section returns exactly where it was — the argument for
+ * showing it still holds: a parent who has to ask assumes it is expensive and
+ * leaves. Remember to take the dashed borders and the zeroed numbers out of
+ * `Price` at the same time.
+ */
+const SHOW_PRICE = false;
 
 export const metadata: Metadata = {
   title: brand.tagline,
@@ -41,7 +51,7 @@ export default function Home() {
         <AWeek />
         <Teacher />
         <Abroad />
-        <Price />
+        {SHOW_PRICE && <Price />}
         <LastWord />
       </main>
       <SiteFooter />
@@ -81,7 +91,7 @@ function Hero() {
             </div>
           </div>
 
-          <PhotoCluster />
+          <PanelCluster />
         </div>
       </div>
     </section>
@@ -240,11 +250,7 @@ function Teacher() {
   return (
     <section className="mx-auto w-full max-w-5xl px-6 pb-16">
       <div className="grid gap-12 lg:grid-cols-[1fr_1.2fr] lg:items-center">
-        <PhotoSlot
-          label="A portrait of the teacher will go here"
-          tone="peach"
-          className="aspect-square w-full max-w-sm"
-        />
+        <Panel tone="peach" className="aspect-square w-full max-w-sm" />
 
         <div>
           <h2 className="text-3xl font-bold sm:text-4xl">
