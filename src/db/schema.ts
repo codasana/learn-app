@@ -340,6 +340,15 @@ export const enquiries = pgTable(
     teacherNotes: text("teacher_notes"),
     notes: text("notes"),
 
+    /**
+     * The Automette submission this came from, when it came from a form.
+     *
+     * Unique, and it is what makes the webhook idempotent: Automette retries
+     * with a stable event id, so the same enquiry legitimately arrives more
+     * than once and must not become two families.
+     */
+    autometteSubmissionId: text("automette_submission_id"),
+
     /** Set on decline; a scheduled job removes the row after this date. */
     purgeAfter: date("purge_after"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -348,6 +357,7 @@ export const enquiries = pgTable(
   (t) => [
     index("enquiries_status_idx").on(t.status),
     index("enquiries_email_idx").on(t.parentEmail),
+    unique("enquiries_automette_submission_unique").on(t.autometteSubmissionId),
   ],
 );
 

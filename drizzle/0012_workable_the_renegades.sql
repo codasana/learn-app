@@ -1,0 +1,2 @@
+ALTER TABLE "enquiries" ADD COLUMN "automette_submission_id" text;--> statement-breakpoint
+ALTER TABLE "enquiries" ADD CONSTRAINT "enquiries_automette_submission_unique" UNIQUE("automette_submission_id");

@@ -110,8 +110,14 @@ cursor paginated. `since` is what makes backfill possible.
 ### `POST | GET | DELETE /api/v1/forms/:id/webhooks`
 
 Per-form webhook with a returned `secret`. The delivery format already exists
-and should not change — `event: "form.submitted"`, `X-Signature` HMAC-SHA256,
-`eventId: evt_form_<submissionId>` for idempotency.
+and should not change — `event: "form.submitted"`, Standard Webhooks headers
+(`webhook-id`, `webhook-timestamp`, `webhook-signature: v1,<base64>`), and
+`evt_form_<submissionId>` as the event id for idempotency.
+
+**Correction, 15 Aug:** this section originally said `X-Signature`, which was
+wrong — taken from an older planning document rather than the shipped
+`webhook-delivery` implementation. The reference page has it right; the forms
+guide repeated our mistake.
 
 Returning the secret on create is the missing piece: today it can only be read
 from the dashboard, so an API-provisioned form cannot verify its own webhooks.
