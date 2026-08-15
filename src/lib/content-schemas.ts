@@ -64,6 +64,33 @@ export const writingTaskBody = z.object({
   feedbackFocus: z.string().default(""),
 });
 
+/**
+ * A task the child answers out loud.
+ *
+ * Deliberately close to writingTaskBody rather than merged with it: the
+ * prompts are the same idea, but what Sheeba listens for is not what she
+ * reads for, and `maxSeconds` has no writing equivalent. Two small schemas
+ * beat one with half its fields ignored.
+ */
+export const speakingTaskBody = z.object({
+  prompt: z.string().default(""),
+  /** Bullets the child can glance at while speaking. */
+  planningBoxes: z.array(z.string()).default(["", "", ""]),
+  /** A cap, so a nervous child is not staring at an open-ended recorder. */
+  maxSeconds: z.number().int().min(15).max(600).default(90),
+  feedbackFocus: z.string().default(""),
+});
+
+/**
+ * The part of any task that the review screen needs: what the child was asked,
+ * and what to mark. Every submittable task type has both, so this parses all
+ * of them without knowing which it is holding.
+ */
+export const reviewPrompt = z.object({
+  prompt: z.string().default(""),
+  feedbackFocus: z.string().default(""),
+});
+
 export const activityBody = z.object({
   instructions: z.string().default(""),
 });
@@ -80,6 +107,7 @@ export const BODY_SCHEMAS = {
   sentence_builder: sentenceBuilderBody,
   quiz: quizBody,
   writing_task: writingTaskBody,
+  speaking_task: speakingTaskBody,
   activity: activityBody,
   slides: fileBody,
   worksheet: fileBody,

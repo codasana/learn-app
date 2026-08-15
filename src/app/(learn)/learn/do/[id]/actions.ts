@@ -5,8 +5,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { activityCompletions, writingSubmissions } from "@/db/schema";
+import { activityCompletions, submissions } from "@/db/schema";
 import { requireLearner, unitPractice } from "@/lib/child-session";
+import { acceptedKinds, type SubmissionKind } from "@/lib/content-types";
 
 /**
  * Everything here re-derives the child from the session and re-checks that the
@@ -57,47 +58,81 @@ export async function completeActivity(
 }
 
 /**
- * Hands a piece of writing to the teacher.
+ * Hands something to the teacher.
  *
  * Nothing is scored and nothing is shown back. The child is told a person will
- * read it, because a person will — no AI text ever reaches a child without the
- * teacher releasing it, which is why `ai_draft` is never selected here.
+ * look at it, because a person will — no AI text ever reaches a child without
+ * the teacher releasing it, which is why `ai_draft` is never selected here.
+ *
+ * One function for every shape of answer. The activity decides which shapes it
+ * accepts; this checks the answer against that and stores it in the column
+ * that fits. Adding a shape means adding it to `accepts`, not writing a second
+ * submit action that drifts from this one.
  */
-export async function submitWriting(
+export async function submit(
   contentItemId: string,
-  body: string,
+  answer:
+    | { kind: "text"; body: string }
+    | { kind: "audio" | "photo" | "file"; mediaUrl: string; seconds?: number }
+    | { kind: "answers"; payload: Record<string, unknown> },
 ): Promise<{ ok: boolean; error?: string }> {
   const ctx = await requireItemInThisWeek(contentItemId);
   if (!ctx) return { ok: false, error: "That task isn't set for you." };
 
-  const text = body.trim();
-  if (text.length < 5) {
-    return { ok: false, error: "Write a little more before sending it." };
-  }
-  if (text.length > 20000) {
-    return { ok: false, error: "That's longer than this box can take." };
+  const allowed = acceptedKinds(ctx.item.type);
+  if (!allowed.includes(answer.kind)) {
+    return { ok: false, error: "That isn't how this one is handed in." };
   }
 
-  const existing = await db.query.writingSubmissions.findFirst({
+  const values: {
+    kind: SubmissionKind;
+    body?: string | null;
+    mediaUrl?: string | null;
+    mediaSeconds?: number | null;
+    payload?: Record<string, unknown>;
+  } = { kind: answer.kind };
+
+  if (answer.kind === "text") {
+    const text = answer.body.trim();
+    if (text.length < 5) {
+      return { ok: false, error: "Write a little more before sending it." };
+    }
+    if (text.length > 20000) {
+      return { ok: false, error: "That's longer than this box can take." };
+    }
+    values.body = text;
+  } else if (answer.kind === "answers") {
+    values.payload = answer.payload;
+  } else {
+    // The upload already happened; this is the key it landed under. Anything
+    // else would let a child point their submission at an arbitrary URL.
+    if (!/^[\w./-]+$/.test(answer.mediaUrl)) {
+      return { ok: false, error: "That file didn't upload properly." };
+    }
+    values.mediaUrl = answer.mediaUrl;
+    values.mediaSeconds = answer.seconds ?? null;
+  }
+
+  const existing = await db.query.submissions.findFirst({
     where: and(
-      eq(writingSubmissions.childId, ctx.learner.childId),
-      eq(writingSubmissions.writingTaskId, contentItemId),
+      eq(submissions.childId, ctx.learner.childId),
+      eq(submissions.contentItemId, contentItemId),
     ),
   });
 
-  // Re-submitting before the teacher has looked replaces the draft rather than
+  // Re-submitting before the teacher has looked replaces it rather than
   // stacking up copies. Once she has read it, a change is a redraft and that
   // is a different flow.
   if (existing && existing.status === "submitted") {
     await db
-      .update(writingSubmissions)
-      .set({ body: text, submittedAt: new Date() })
-      .where(eq(writingSubmissions.id, existing.id));
+      .update(submissions)
+      .set({ ...values, submittedAt: new Date() })
+      .where(eq(submissions.id, existing.id));
   } else if (!existing) {
-    await db.insert(writingSubmissions).values({
+    await db.insert(submissions).values({
       childId: ctx.learner.childId,
-      writingTaskId: contentItemId,
-      body: text,
+      contentItemId,
+      ...values,
     });
   }
 

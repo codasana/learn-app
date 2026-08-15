@@ -5,16 +5,24 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { childProfiles, contentItems, writingSubmissions } from "@/db/schema";
+import { childProfiles, contentItems, submissions } from "@/db/schema";
 import { requireTeacher } from "@/lib/session";
 
 export type Result = { ok: true } | { ok: false; error: string };
 
 function touch(id?: string) {
-  revalidatePath("/teacher/writing");
+  revalidatePath("/teacher/review");
   revalidatePath("/teacher");
   revalidatePath("/learn");
-  if (id) revalidatePath(`/teacher/writing/${id}`);
+  if (id) revalidatePath(`/teacher/review/${id}`);
+}
+
+/** "0:42" — for an audio answer, where the length is the whole preview. */
+function clock(seconds: number | null): string | null {
+  if (seconds === null) return null;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 /**
@@ -23,33 +31,34 @@ function touch(id?: string) {
  * Oldest first on purpose: a child who submitted on Monday should not be
  * behind one who submitted this morning because the newest looks freshest at
  * the top of a list. The wait is the thing being managed.
+ *
+ * This used to select writing only. It now returns whatever children have
+ * handed in — a recording of a child speaking sits in the same queue as a
+ * piece of writing, because it is the same job: a person has to answer it.
  */
 export async function listForReview() {
   await requireTeacher();
 
   const rows = await db
     .select({
-      id: writingSubmissions.id,
+      id: submissions.id,
       childName: childProfiles.firstName,
       avatar: childProfiles.avatar,
       taskTitle: contentItems.title,
-      status: writingSubmissions.status,
-      submittedAt: writingSubmissions.submittedAt,
+      taskType: contentItems.type,
+      kind: submissions.kind,
+      status: submissions.status,
+      submittedAt: submissions.submittedAt,
       // `body` only for a preview line. `ai_draft` is never selected anywhere
       // a child could reach; here it is simply not needed.
-      body: writingSubmissions.body,
+      body: submissions.body,
+      mediaSeconds: submissions.mediaSeconds,
     })
-    .from(writingSubmissions)
-    .innerJoin(
-      childProfiles,
-      eq(childProfiles.id, writingSubmissions.childId),
-    )
-    .innerJoin(
-      contentItems,
-      eq(contentItems.id, writingSubmissions.writingTaskId),
-    )
-    .where(inArray(writingSubmissions.status, ["submitted", "ai_drafted"]))
-    .orderBy(asc(writingSubmissions.submittedAt));
+    .from(submissions)
+    .innerJoin(childProfiles, eq(childProfiles.id, submissions.childId))
+    .innerJoin(contentItems, eq(contentItems.id, submissions.contentItemId))
+    .where(inArray(submissions.status, ["submitted", "ai_drafted"]))
+    .orderBy(asc(submissions.submittedAt));
 
   // How long each has been waiting is computed here rather than in the page:
   // reading a clock during render is impure, and the answer belongs with the
@@ -59,6 +68,8 @@ export async function listForReview() {
     const days = Math.floor((now - r.submittedAt.getTime()) / 86_400_000);
     return {
       ...r,
+      /** What to show in the list when there is no text to quote. */
+      preview: r.body?.trim() || clock(r.mediaSeconds) || null,
       waitingLabel:
         days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`,
       overdue: days >= 3,
@@ -72,20 +83,18 @@ export async function listReleased(limit = 20) {
 
   return db
     .select({
-      id: writingSubmissions.id,
+      id: submissions.id,
       childName: childProfiles.firstName,
       avatar: childProfiles.avatar,
       taskTitle: contentItems.title,
-      releasedAt: writingSubmissions.releasedAt,
+      kind: submissions.kind,
+      releasedAt: submissions.releasedAt,
     })
-    .from(writingSubmissions)
-    .innerJoin(childProfiles, eq(childProfiles.id, writingSubmissions.childId))
-    .innerJoin(
-      contentItems,
-      eq(contentItems.id, writingSubmissions.writingTaskId),
-    )
-    .where(inArray(writingSubmissions.status, ["released", "redrafted"]))
-    .orderBy(desc(writingSubmissions.releasedAt))
+    .from(submissions)
+    .innerJoin(childProfiles, eq(childProfiles.id, submissions.childId))
+    .innerJoin(contentItems, eq(contentItems.id, submissions.contentItemId))
+    .where(inArray(submissions.status, ["released", "redrafted"]))
+    .orderBy(desc(submissions.releasedAt))
     .limit(limit);
 }
 
@@ -96,7 +105,7 @@ const feedback = z.object({
 /**
  * Saves without sending. The child sees nothing.
  *
- * Worth having separately from release: marking six pieces of writing is an
+ * Worth having separately from release: marking six pieces of work is an
  * evening's work, and losing half of it because the last one was interrupted
  * would be unforgivable.
  */
@@ -112,9 +121,9 @@ export async function saveFeedback(
   }
 
   await db
-    .update(writingSubmissions)
+    .update(submissions)
     .set({ teacherFeedback: parsed.data.teacherFeedback })
-    .where(eq(writingSubmissions.id, id));
+    .where(eq(submissions.id, id));
 
   touch(id);
   return { ok: true };
@@ -144,13 +153,13 @@ export async function releaseFeedback(
   }
 
   await db
-    .update(writingSubmissions)
+    .update(submissions)
     .set({
       teacherFeedback: parsed.data.teacherFeedback,
       status: "released",
       releasedAt: new Date(),
     })
-    .where(eq(writingSubmissions.id, id));
+    .where(eq(submissions.id, id));
 
   touch(id);
   return { ok: true };
@@ -161,9 +170,9 @@ export async function unrelease(id: string): Promise<Result> {
   await requireTeacher();
 
   await db
-    .update(writingSubmissions)
+    .update(submissions)
     .set({ status: "submitted", releasedAt: null })
-    .where(eq(writingSubmissions.id, id));
+    .where(eq(submissions.id, id));
 
   touch(id);
   return { ok: true };

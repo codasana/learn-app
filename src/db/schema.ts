@@ -21,6 +21,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -50,6 +51,7 @@ export const contentType = pgEnum("content_type", [
   "sentence_builder",
   "listening",
   "writing_task",
+  "speaking_task",
 ]);
 
 export const audience = pgEnum("audience", ["teacher", "student", "parent"]);
@@ -117,7 +119,24 @@ export const activityKind = pgEnum("activity_kind", [
   "quiz",
 ]);
 
-export const writingStatus = pgEnum("writing_status", [
+/**
+ * What shape the child's answer took.
+ *
+ * This is stored, not derived from the activity's type, because one activity
+ * can accept more than one shape — "tell me about your family" is a fair task
+ * whether the child writes it or records it, and a child who cannot type yet
+ * should be able to photograph a page.
+ */
+export const submissionKind = pgEnum("submission_kind", [
+  "text",
+  "audio",
+  "photo",
+  "file",
+  /** Structured answers — a puzzle's final state, the choices made. */
+  "answers",
+]);
+
+export const submissionStatus = pgEnum("submission_status", [
   "submitted",
   "ai_drafted",
   "released",
@@ -804,24 +823,58 @@ export const dailyProgress = pgTable(
 );
 
 /* ------------------------------------------------------------------ */
-/* Writing                                                             */
+/* Submissions — anything a child hands in for a person to answer       */
 /* ------------------------------------------------------------------ */
 
-export const writingSubmissions = pgTable(
-  "writing_submissions",
+/**
+ * A child's answer to an activity, whatever shape that answer takes.
+ *
+ * This was `writing_submissions` and assumed prose, which was only ever true
+ * of the first activity we built. A child recording themselves so Sheeba can
+ * hear their speaking is the same transaction: they hand something in, and a
+ * person — never the app — answers it. Photographed handwriting, a finished
+ * puzzle and a piece of writing all sit here.
+ *
+ * The line this table draws is not "writing vs other". It is:
+ *
+ *   activity_completions — the app can mark it (a quiz, a word review)
+ *   submissions          — only a person can respond
+ *
+ * Which is why every row carries review and release columns, and why nothing
+ * auto-marked lives here.
+ */
+export const submissions = pgTable(
+  "submissions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     childId: uuid("child_id")
       .notNull()
       .references(() => childProfiles.id, { onDelete: "cascade" }),
-    writingTaskId: uuid("writing_task_id")
+    /** The activity being answered — any content type, not just writing. */
+    contentItemId: uuid("content_item_id")
       .notNull()
       .references(() => contentItems.id, { onDelete: "restrict" }),
+    kind: submissionKind("kind").notNull().default("text"),
+
+    /* --- the child's answer; which of these is used depends on `kind` --- */
+
+    /** `text`. Also the transcript, when we ever transcribe audio. */
     body: text("body"),
-    /** Private R2 object — may show the child's handwriting. Signed URLs only. */
-    photoUrl: text("photo_url"),
-    planningNotes: jsonb("planning_notes").notNull().default({}),
-    status: writingStatus("status").notNull().default("submitted"),
+    /**
+     * `audio`, `photo`, `file` — a private R2 object. It may be a child's
+     * voice or handwriting, so it is served by signed URL and never public.
+     */
+    mediaUrl: text("media_url"),
+    /** Length of an audio or video answer, so the queue can say "0:42". */
+    mediaSeconds: integer("media_seconds"),
+    /** `answers` — whatever structure that activity defines. */
+    payload: jsonb("payload").notNull().default({}),
+    /** Working out: the planning boxes, a first attempt, notes to self. */
+    notes: jsonb("notes").notNull().default({}),
+
+    /* --- the response, which is always a person's --- */
+
+    status: submissionStatus("status").notNull().default("submitted"),
     /**
      * NEVER select this column on a child- or parent-facing endpoint.
      * Teacher review and release is mandatory.
@@ -834,8 +887,15 @@ export const writingSubmissions = pgTable(
     releasedAt: timestamp("released_at"),
   },
   (t) => [
-    index("writing_submissions_status_idx").on(t.status),
-    index("writing_submissions_child_idx").on(t.childId),
+    index("submissions_status_idx").on(t.status),
+    index("submissions_child_idx").on(t.childId),
+    /*
+     * One row per child per activity. A redraft edits the row it belongs to
+     * rather than making a second one, so the child and Sheeba are always
+     * looking at the same conversation. Without this the read-then-write in
+     * the submit action could quietly make duplicates.
+     */
+    uniqueIndex("submissions_child_item_key").on(t.childId, t.contentItemId),
   ],
 );
 

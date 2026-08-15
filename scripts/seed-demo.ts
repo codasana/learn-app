@@ -179,7 +179,7 @@ async function main() {
           .delete(s.scheduledClasses)
           .where(eq(s.scheduledClasses.enrollmentId, e.id));
       }
-      await db.delete(s.writingSubmissions).where(eq(s.writingSubmissions.childId, k.id));
+      await db.delete(s.submissions).where(eq(s.submissions.childId, k.id));
       await db.delete(s.activityCompletions).where(eq(s.activityCompletions.childId, k.id));
       await db.delete(s.cardStates).where(eq(s.cardStates.childId, k.id));
       await db.delete(s.dailyProgress).where(eq(s.dailyProgress.childId, k.id));
@@ -230,6 +230,9 @@ async function main() {
   });
   const writingTask = await db.query.contentItems.findFirst({
     where: eq(s.contentItems.type, "writing_task"),
+  });
+  const speakingTask = await db.query.contentItems.findFirst({
+    where: eq(s.contentItems.type, "speaking_task"),
   });
   const practiceItems = await db
     .select()
@@ -367,12 +370,13 @@ async function main() {
       });
     }
 
-    /* --- writing: one waiting, one answered ----------------------- */
+    /* --- handed in: some waiting, some answered ------------------- */
     if (writingTask && f.diligence !== "none") {
       const answered = f.diligence === "all";
-      await db.insert(s.writingSubmissions).values({
+      await db.insert(s.submissions).values({
         childId: child.id,
-        writingTaskId: writingTask.id,
+        contentItemId: writingTask.id,
+        kind: "text",
         body:
           f.child === "Arjun"
             ? "My name is Arjun. I am ten years old and I live in Singapore. I like cricket and I play it every Saturday with my friends."
@@ -383,6 +387,24 @@ async function main() {
           : null,
         releasedAt: answered ? new Date() : null,
         submittedAt: new Date(Date.now() - (answered ? 5 : 2) * 864e5),
+      });
+    }
+
+    /*
+     * A recording, so the review queue holds more than prose. The object key
+     * is a placeholder — no audio has been uploaded yet, so the player on the
+     * review screen will not have anything to play. Everything around it (the
+     * queue, the wait, the reply) is real.
+     */
+    if (speakingTask && (f.child === "Nila" || f.child === "Zara")) {
+      await db.insert(s.submissions).values({
+        childId: child.id,
+        contentItemId: speakingTask.id,
+        kind: "audio",
+        mediaUrl: `submissions/demo/${f.username}-family.webm`,
+        mediaSeconds: f.child === "Nila" ? 63 : 41,
+        status: "submitted",
+        submittedAt: new Date(Date.now() - 4 * 864e5),
       });
     }
 

@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Notice, Textarea } from "@/components/ui/field";
 
-import { submitWriting } from "./actions";
+import { submit } from "./actions";
 
 /**
  * The writing task.
@@ -48,7 +48,7 @@ export function WritingPlayer({
   async function send() {
     setSaving(true);
     setError(null);
-    const res = await submitWriting(id, text);
+    const res = await submit(id, { kind: "text", body: text });
     setSaving(false);
     if (!res.ok) {
       setError(res.error ?? "That didn't send. Try again.");

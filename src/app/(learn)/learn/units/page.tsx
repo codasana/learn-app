@@ -8,7 +8,7 @@ import {
   contentItems,
   syllabusUnits,
   syllabusUnitItems,
-  writingSubmissions,
+  submissions,
 } from "@/db/schema";
 import { requireLearner } from "@/lib/child-session";
 import { CONTENT_TYPES, type ContentTypeKey } from "@/lib/content-types";
@@ -73,17 +73,14 @@ export default async function UnitsPage() {
       .where(eq(activityCompletions.childId, learner.childId)),
     db
       .select({
-        id: writingSubmissions.id,
-        taskId: writingSubmissions.writingTaskId,
-        status: writingSubmissions.status,
+        id: submissions.id,
+        taskId: submissions.contentItemId,
+        status: submissions.status,
         title: contentItems.title,
       })
-      .from(writingSubmissions)
-      .innerJoin(
-        contentItems,
-        eq(contentItems.id, writingSubmissions.writingTaskId),
-      )
-      .where(eq(writingSubmissions.childId, learner.childId)),
+      .from(submissions)
+      .innerJoin(contentItems, eq(contentItems.id, submissions.contentItemId))
+      .where(eq(submissions.childId, learner.childId)),
     db
       .select({
         unitId: syllabusUnitItems.syllabusUnitId,

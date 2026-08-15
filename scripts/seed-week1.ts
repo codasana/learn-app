@@ -413,6 +413,30 @@ async function main() {
     },
   });
 
+  /*
+   * A speaking task, so the library has something that is answered out loud.
+   * The child records; Sheeba listens and replies. It sits in the same review
+   * queue as the writing, because it is the same job.
+   */
+  const speakingId = await make({
+    ...base,
+    title: "Tell me about your family",
+    tags: ["speaking aloud", "family", "introductions"],
+    type: "speaking_task",
+    body: {
+      prompt:
+        "Record yourself talking about your family for about a minute. Who is in it? What do you like doing together?",
+      planningBoxes: [
+        "Who is in my family",
+        "Something we do together",
+        "One thing I love about them",
+      ],
+      maxSeconds: 90,
+      feedbackFocus:
+        "Confidence and flow, not grammar. Say back one thing they said well before anything else.",
+    },
+  });
+
   const quizId = await make({
     ...base,
     title: "All About Me — quiz",
@@ -504,7 +528,16 @@ async function main() {
 
   // The order the child meets them in between the two classes.
   await db.insert(syllabusUnitItems).values(
-    [vocabId, arjunId, listeningId, builderId, writingId, zaraId, quizId].map(
+    [
+      vocabId,
+      arjunId,
+      listeningId,
+      builderId,
+      writingId,
+      speakingId,
+      zaraId,
+      quizId,
+    ].map(
       (contentItemId, sortOrder) => ({
         syllabusUnitId: week1.id,
         contentItemId,
@@ -516,10 +549,10 @@ async function main() {
   console.log(`
 Seeded "${SYLLABUS_NAME}"
 
-  13 content items — 3 of them drafts, waiting on their PDFs
+  14 content items — 3 of them drafts, waiting on their PDFs
   12 weeks, week 1 filled in
   Class 1 and Class 2, 3 materials each
-  7 things for the child to do on their own
+  8 things for the child to do on their own
 
   /teacher/syllabus/${syllabus.id}
 `);

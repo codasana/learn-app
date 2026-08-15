@@ -7,10 +7,11 @@ import {
   attendance,
   cardStates,
   childProfiles,
+  contentItems,
   enquiries,
   enrollments,
   scheduledClasses,
-  writingSubmissions,
+  submissions,
 } from "@/db/schema";
 import { requireTeacher } from "@/lib/session";
 
@@ -28,11 +29,20 @@ import { requireTeacher } from "@/lib/session";
  */
 
 export type Attention = {
-  kind: "missed" | "quiet" | "writing" | "enquiry";
+  kind: "missed" | "quiet" | "handed-in" | "enquiry";
   childId?: string;
   title: string;
   detail: string;
   href: string;
+};
+
+/** What to call the thing they handed in, in a sentence. */
+const NOUN: Record<string, string> = {
+  text: "writing",
+  audio: "recording",
+  photo: "photo",
+  file: "file",
+  answers: "answers",
 };
 
 /** No practice in this many days counts as gone quiet. */
@@ -127,32 +137,37 @@ export async function needsAttention(): Promise<Attention[]> {
     }
   }
 
-  /* --- writing that has been waiting a while ---------------------- */
+  /* --- work that has been waiting a while ------------------------- */
   const waiting = await db
     .select({
-      id: writingSubmissions.id,
+      id: submissions.id,
       firstName: childProfiles.firstName,
-      submittedAt: writingSubmissions.submittedAt,
+      submittedAt: submissions.submittedAt,
+      kind: submissions.kind,
+      taskTitle: contentItems.title,
     })
-    .from(writingSubmissions)
-    .innerJoin(childProfiles, eq(childProfiles.id, writingSubmissions.childId))
+    .from(submissions)
+    .innerJoin(childProfiles, eq(childProfiles.id, submissions.childId))
+    .innerJoin(contentItems, eq(contentItems.id, submissions.contentItemId))
     .where(
       and(
-        inArray(writingSubmissions.status, ["submitted", "ai_drafted"]),
-        lt(writingSubmissions.submittedAt, new Date(now.getTime() - 3 * 864e5)),
+        inArray(submissions.status, ["submitted", "ai_drafted"]),
+        lt(submissions.submittedAt, new Date(now.getTime() - 3 * 864e5)),
       ),
     )
-    .orderBy(writingSubmissions.submittedAt);
+    .orderBy(submissions.submittedAt);
 
   for (const w of waiting) {
     const days = Math.floor(
       (now.getTime() - w.submittedAt.getTime()) / 864e5,
     );
     out.push({
-      kind: "writing",
-      title: `${w.firstName}'s writing has waited ${days} days`,
-      detail: "They are expecting an answer",
-      href: `/teacher/writing/${w.id}`,
+      kind: "handed-in",
+      // Name the thing rather than assuming prose — this queue holds
+      // recordings and photographed work too.
+      title: `${w.firstName}'s ${NOUN[w.kind]} has waited ${days} days`,
+      detail: w.taskTitle,
+      href: `/teacher/review/${w.id}`,
     });
   }
 

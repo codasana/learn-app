@@ -10,7 +10,7 @@ import {
   enrollments,
 
   syllabi,
-  writingSubmissions,
+  submissions,
 } from "@/db/schema";
 import { requireTeacher } from "@/lib/session";
 
@@ -38,8 +38,8 @@ async function counts() {
     .where(sql`${enquiries.status} not in ('enrolled','declined','dormant')`);
   const [awaiting] = await db
     .select({ n: count() })
-    .from(writingSubmissions)
-    .where(sql`${writingSubmissions.status} in ('submitted','ai_drafted')`);
+    .from(submissions)
+    .where(sql`${submissions.status} in ('submitted','ai_drafted')`);
   return {
     items: items.n,
     published: published.n,
@@ -77,12 +77,12 @@ export default async function TeacherHome() {
 
       {c.awaiting > 0 && (
         <Link
-          href="/teacher/writing"
+          href="/teacher/review"
           className="block rounded-[var(--radius-card)] bg-[var(--accent-soft)] px-4 py-3 text-[var(--accent-ink)]"
         >
           <span className="font-medium">
-            {c.awaiting} piece{c.awaiting === 1 ? "" : "s"} of writing waiting
-            for you
+            {c.awaiting} thing{c.awaiting === 1 ? "" : "s"} waiting for you to
+            look at
           </span>{" "}
           — children see nothing until you release it.
         </Link>

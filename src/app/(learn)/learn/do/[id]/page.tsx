@@ -5,12 +5,13 @@ import { notFound } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
-import { writingSubmissions } from "@/db/schema";
+import { submissions } from "@/db/schema";
 import { requireLearner, unitPractice } from "@/lib/child-session";
 import {
   passageBody,
   quizBody,
   sentenceBuilderBody,
+  speakingTaskBody,
   writingTaskBody,
 } from "@/lib/content-schemas";
 import { shuffle } from "@/lib/shuffle";
@@ -18,6 +19,7 @@ import { shuffle } from "@/lib/shuffle";
 import { PassagePlayer } from "./passage-player";
 import { QuizPlayer } from "./quiz-player";
 import { SentencePlayer } from "./sentence-player";
+import { SpeakingPlayer } from "./speaking-player";
 import { WritingPlayer } from "./writing-player";
 
 export const metadata: Metadata = { title: "Practice" };
@@ -91,10 +93,10 @@ export default async function DoPage({
       const body = writingTaskBody.safeParse(item.body);
       if (!body.success) notFound();
 
-      const existing = await db.query.writingSubmissions.findFirst({
+      const existing = await db.query.submissions.findFirst({
         where: and(
-          eq(writingSubmissions.childId, learner.childId),
-          eq(writingSubmissions.writingTaskId, item.id),
+          eq(submissions.childId, learner.childId),
+          eq(submissions.contentItemId, item.id),
         ),
         // `ai_draft` and the teacher's private notes are deliberately not
         // selected. Nothing generated reaches a child unreleased.
@@ -112,6 +114,44 @@ export default async function DoPage({
               ? {
                   body: existing.body ?? "",
                   status: existing.status,
+                  feedback:
+                    existing.status === "released" ||
+                    existing.status === "redrafted"
+                      ? (existing.teacherFeedback ?? null)
+                      : null,
+                }
+              : null
+          }
+        />
+      );
+    }
+
+    case "speaking_task": {
+      const body = speakingTaskBody.safeParse(item.body);
+      if (!body.success) notFound();
+
+      const existing = await db.query.submissions.findFirst({
+        where: and(
+          eq(submissions.childId, learner.childId),
+          eq(submissions.contentItemId, item.id),
+        ),
+        // Same rule as writing: `ai_draft` is never selected on a child's
+        // screen, and feedback is only read once she has released it.
+        columns: { status: true, teacherFeedback: true, mediaSeconds: true },
+      });
+
+      return (
+        <SpeakingPlayer
+          id={item.id}
+          title={item.title}
+          prompt={body.data.prompt}
+          planningBoxes={body.data.planningBoxes}
+          maxSeconds={body.data.maxSeconds}
+          existing={
+            existing
+              ? {
+                  status: existing.status,
+                  seconds: existing.mediaSeconds,
                   feedback:
                     existing.status === "released" ||
                     existing.status === "redrafted"
