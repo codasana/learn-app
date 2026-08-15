@@ -16,7 +16,9 @@ import {
 
 import {
   addClassMaterial,
+  addClassSession,
   addUnitItem,
+  deleteClassSession,
   moveClassMaterial,
   moveUnitItem,
   removeClassMaterial,
@@ -89,10 +91,24 @@ export function UnitEditor({
           key={s.id}
           session={s}
           tags={tags}
+          canRemove={sessions.length > 1}
           pending={pending}
           run={run}
         />
       ))}
+
+      {/*
+        Two classes is where a new unit starts, not what a unit is. A family
+        buying one class a week, or an intensive week of four, is a normal
+        thing this has to hold.
+      */}
+      <Button
+        variant="secondary"
+        disabled={pending}
+        onClick={() => run(() => addClassSession(unit.id))}
+      >
+        Add another class
+      </Button>
 
       <Practice
         unitId={unit.id}
@@ -171,11 +187,14 @@ function UnitHeader({
 function ClassCard({
   session,
   tags,
+  canRemove,
   pending,
   run,
 }: {
   session: Session;
   tags: string[];
+  /** False when this is the unit's only class — a unit needs at least one. */
+  canRemove: boolean;
   pending: boolean;
   run: Run;
 }) {
@@ -191,11 +210,21 @@ function ClassCard({
         <span className="text-sm text-[var(--ink-faint)]">
           Class {session.classNumber}
         </span>
-        <span className="text-sm text-[var(--ink-faint)]">
+        <span className="flex-1 text-sm text-[var(--ink-faint)]">
           {session.classNumber === 1
             ? "usually the new material"
             : "usually the practice and speaking"}
         </span>
+        {canRemove && (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => run(() => deleteClassSession(session.id))}
+            className="rounded-[var(--radius-sm)] px-2 py-1 text-sm text-[var(--ink-muted)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink)] disabled:opacity-30"
+          >
+            Remove this class
+          </button>
+        )}
       </div>
 
       <Field label="What you'll call it" htmlFor={`title-${session.id}`}>

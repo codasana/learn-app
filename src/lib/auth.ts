@@ -21,6 +21,19 @@ import { db, schema } from "@/db";
  * a UI gate over `users.pinHash` (see src/lib/pin.ts).
  */
 export const auth = betterAuth({
+  /*
+   * In development the port is not ours to choose — Next takes 3001 when
+   * something else already holds 3000, and Better Auth then rejects every
+   * request as an invalid origin. That failure reads like broken credentials
+   * rather than a port clash, which is a miserable ten minutes to spend.
+   *
+   * Localhost on any port is trusted in development only. In production the
+   * configured URL is the only origin, which is the whole point of the check.
+   */
+  ...(process.env.NODE_ENV === "development"
+    ? { trustedOrigins: ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"] }
+    : {}),
+
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {

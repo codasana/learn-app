@@ -9,7 +9,7 @@ import { avatarEmoji } from "@/lib/avatars";
 import { AGE_BANDS } from "@/lib/content-types";
 import { requireTeacher } from "@/lib/session";
 
-import { availableSyllabi } from "../actions";
+import { availableSyllabi, unitsForChild } from "../actions";
 import { StudentEditor } from "./student-editor";
 
 export const metadata: Metadata = { title: "Student" };
@@ -58,7 +58,10 @@ export default async function StudentPage({
     )
     .limit(1);
 
-  const syllabuses = await availableSyllabi();
+  const [syllabuses, units] = await Promise.all([
+    availableSyllabi(),
+    unitsForChild(id),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -90,6 +93,7 @@ export default async function StudentPage({
         activeEnrolmentId={active?.id ?? null}
         history={history}
         syllabuses={syllabuses}
+        units={units}
         signIn={
           childAccount
             ? {

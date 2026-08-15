@@ -10,6 +10,7 @@ import { suggestUsername } from "@/lib/username-suggestion";
 import {
   createLogin,
   enrolChild,
+  moveToUnit,
   resetLogin,
   suggestPassword,
   updateEnrolment,
@@ -39,6 +40,7 @@ export function StudentEditor({
   activeEnrolmentId,
   history,
   syllabuses,
+  units,
   signIn,
 }: {
   childId: string;
@@ -46,6 +48,7 @@ export function StudentEditor({
   activeEnrolmentId: string | null;
   history: Enrolment[];
   syllabuses: { id: string; name: string }[];
+  units: { position: number; theme: string }[];
   signIn: { username: string } | null;
 }) {
   const router = useRouter();
@@ -64,6 +67,7 @@ export function StudentEditor({
         active={active}
         history={history}
         syllabuses={syllabuses}
+        units={units}
         pending={pending}
         setPending={setPending}
         setMessage={setMessage}
@@ -98,6 +102,7 @@ function Enrolment({
   active,
   history,
   syllabuses,
+  units,
   pending,
   setPending,
   setMessage,
@@ -108,6 +113,7 @@ function Enrolment({
   active: Enrolment | null;
   history: Enrolment[];
   syllabuses: { id: string; name: string }[];
+  units: { position: number; theme: string }[];
 }) {
   const [chosen, setChosen] = useState(syllabuses[0]?.id ?? "");
   const word = (active?.unitLabel ?? "Unit").toLowerCase();
@@ -151,21 +157,19 @@ function Enrolment({
             Started {active.startDate}
           </p>
 
+          <WhereTheyAre
+            childId={childId}
+            firstName={firstName}
+            word={word}
+            current={active.currentUnit}
+            units={units}
+            pending={pending}
+            setPending={setPending}
+            setMessage={setMessage}
+            refresh={refresh}
+          />
+
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field
-              label={`Which ${word} they're on`}
-              htmlFor="currentUnit"
-              hint={`Move this on when they finish a ${word}.`}
-            >
-              <Input
-                id="currentUnit"
-                name="currentUnit"
-                type="number"
-                min={1}
-                max={52}
-                defaultValue={active.currentUnit}
-              />
-            </Field>
             <Field label="How it's going" htmlFor="status">
               <Select id="status" name="status" defaultValue={active.status}>
                 {Object.entries(STATUS_LABELS).map(([value, label]) => (
@@ -176,6 +180,12 @@ function Enrolment({
               </Select>
             </Field>
           </div>
+
+          <input
+            type="hidden"
+            name="currentUnit"
+            value={active.currentUnit}
+          />
 
           <div className="flex flex-wrap gap-3">
             <Button type="submit" disabled={pending}>
@@ -407,5 +417,108 @@ function SignIn({
         </Button>
       )}
     </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+/**
+ * Where this child has got to, and moving them.
+ *
+ * Deliberately a list of every unit rather than a "next" button. How long a
+ * unit takes is a judgement, not a calculation: one child covers it in a
+ * single class, another needs four, and a third skips it because they can
+ * already do it. Nothing here computes progress from attendance or from dates,
+ * because neither of those knows whether a child has understood something.
+ *
+ * Sheeba does. This just writes down what she decided.
+ */
+function WhereTheyAre({
+  childId,
+  firstName,
+  word,
+  current,
+  units,
+  pending,
+  setPending,
+  setMessage,
+  refresh,
+}: Shared & {
+  childId: string;
+  firstName: string;
+  word: string;
+  current: number;
+  units: { position: number; theme: string }[];
+}) {
+  async function move(position: number) {
+    setPending(true);
+    setMessage(null);
+    const res = await moveToUnit(childId, position);
+    setPending(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    refresh();
+  }
+
+  if (units.length === 0) return null;
+
+  const next = units.find((u) => u.position === current + 1);
+
+  return (
+    <div className="rounded-[var(--radius)] bg-[var(--surface-sunken)] p-4">
+      <p className="text-sm font-medium">
+        Where {firstName} has got to
+      </p>
+
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {units.map((u) => {
+          const isCurrent = u.position === current;
+          const isPast = u.position < current;
+          return (
+            <button
+              key={u.position}
+              type="button"
+              disabled={pending}
+              onClick={() => move(u.position)}
+              title={u.theme || `${word} ${u.position}`}
+              aria-current={isCurrent ? "step" : undefined}
+              className={`min-h-9 min-w-9 rounded-[var(--radius-sm)] px-2.5 text-sm transition-colors disabled:opacity-40 ${
+                isCurrent
+                  ? "bg-[var(--primary)] font-medium text-[var(--ink-on-primary)]"
+                  : isPast
+                    ? "bg-[var(--correct-soft)] text-[var(--correct)] hover:brightness-95"
+                    : "bg-[var(--surface)] text-[var(--ink-muted)] hover:bg-[var(--primary-soft)]"
+              }`}
+            >
+              {u.position}
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="mt-2 text-sm text-[var(--ink-muted)]">
+        {units.find((u) => u.position === current)?.theme ||
+          `${word.charAt(0).toUpperCase()}${word.slice(1)} ${current}`}
+      </p>
+
+      {next && (
+        <Button
+          type="button"
+          variant="secondary"
+          className="mt-3"
+          disabled={pending}
+          onClick={() => move(next.position)}
+        >
+          {`Move on to ${next.theme || `${word} ${next.position}`}`}
+        </Button>
+      )}
+
+      <p className="mt-3 text-sm text-[var(--ink-faint)]">
+        Move them whenever you judge they are ready — forward, back, or past a{" "}
+        {word} they already know. Nothing here is on a timer.
+      </p>
+    </div>
   );
 }

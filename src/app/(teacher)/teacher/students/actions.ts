@@ -9,6 +9,7 @@ import {
   childProfiles,
   enrollments,
   syllabi,
+  syllabusUnits,
   users,
 } from "@/db/schema";
 import { createChildLogin, resetChildPassword } from "@/lib/child-accounts";
@@ -232,6 +233,80 @@ export async function enrolChild(
     teacherId: teacher.id,
     startDate: new Date().toISOString().slice(0, 10),
   });
+
+  touch(childId);
+  return { ok: true };
+}
+
+/**
+ * Every unit of the child's syllabus, so she can move them anywhere.
+ *
+ * Anywhere is the point. A unit takes as long as it takes: one child covers it
+ * in a single class, another needs four, and a third skips it because they can
+ * already do it. Forward, back, or three ahead — the system has no opinion.
+ */
+export async function unitsForChild(childId: string) {
+  await requireTeacher();
+
+  const [active] = await db
+    .select({ syllabusId: enrollments.syllabusId })
+    .from(enrollments)
+    .where(
+      and(eq(enrollments.childId, childId), eq(enrollments.status, "active")),
+    )
+    .limit(1);
+
+  if (!active) return [];
+
+  return db
+    .select({
+      position: syllabusUnits.position,
+      theme: syllabusUnits.theme,
+    })
+    .from(syllabusUnits)
+    .where(eq(syllabusUnits.syllabusId, active.syllabusId))
+    .orderBy(asc(syllabusUnits.position));
+}
+
+/**
+ * Moves a child to a unit. Any unit.
+ *
+ * There is deliberately no rule behind this and nothing computes it. Not "when
+ * both classes are done" — a unit does not have a fixed number of classes and
+ * a child does not take a fixed number of them. Not a date, either: how long a
+ * unit takes has no connection to the calendar.
+ *
+ * Sheeba is the one who knows whether a child has got it. This records her
+ * decision and does nothing clever with it.
+ */
+export async function moveToUnit(
+  childId: string,
+  position: number,
+): Promise<Result> {
+  await requireTeacher();
+
+  const [active] = await db
+    .select({ id: enrollments.id, syllabusId: enrollments.syllabusId })
+    .from(enrollments)
+    .where(
+      and(eq(enrollments.childId, childId), eq(enrollments.status, "active")),
+    )
+    .limit(1);
+
+  if (!active) return { ok: false, error: "They are not on a syllabus." };
+
+  const unit = await db.query.syllabusUnits.findFirst({
+    where: and(
+      eq(syllabusUnits.syllabusId, active.syllabusId),
+      eq(syllabusUnits.position, position),
+    ),
+  });
+  if (!unit) return { ok: false, error: "That unit is not in their syllabus." };
+
+  await db
+    .update(enrollments)
+    .set({ currentUnit: position })
+    .where(eq(enrollments.id, active.id));
 
   touch(childId);
   return { ok: true };

@@ -204,30 +204,87 @@ export async function moveUnit(
 /* ------------------------------------------------------------------ */
 
 /**
- * A unit has two live classes. They are created on first view rather than at
- * syllabus-creation time, so an existing syllabus picks them up too.
+ * A new unit starts with two classes, because that is how this programme
+ * currently runs — but two is a DEFAULT, not a rule. The teacher adds a third
+ * or removes one, and everything downstream counts what is actually there.
+ *
+ * Only ever creates when a unit has none. Once she has shaped a unit, opening
+ * it again must not quietly put back a class she deleted.
  */
 export async function ensureClassSessions(unitId: string) {
   const existing = await db
-    .select({ classNumber: classSessions.classNumber })
+    .select({ id: classSessions.id })
     .from(classSessions)
     .where(eq(classSessions.syllabusUnitId, unitId));
 
-  const missing = [1, 2].filter(
-    (n) => !existing.some((e) => e.classNumber === n),
-  );
-  if (missing.length === 0) return;
+  if (existing.length > 0) return;
 
   await db
     .insert(classSessions)
-    .values(
-      missing.map((n) => ({
-        syllabusUnitId: unitId,
-        classNumber: n,
-        title: n === 1 ? "Class 1" : "Class 2",
-      })),
-    )
+    .values([1, 2].map((n) => ({
+      syllabusUnitId: unitId,
+      classNumber: n,
+      title: `Class ${n}`,
+    })))
     .onConflictDoNothing();
+}
+
+/** One more class in this unit, numbered after the last. */
+export async function addClassSession(unitId: string): Promise<Result> {
+  await requireTeacher();
+
+  const unit = await findUnit(unitId);
+  if (!unit) return { ok: false, error: "That unit no longer exists." };
+
+  const [last] = await db
+    .select({ n: classSessions.classNumber })
+    .from(classSessions)
+    .where(eq(classSessions.syllabusUnitId, unitId))
+    .orderBy(desc(classSessions.classNumber))
+    .limit(1);
+
+  const next = (last?.n ?? 0) + 1;
+  await db.insert(classSessions).values({
+    syllabusUnitId: unitId,
+    classNumber: next,
+    title: `Class ${next}`,
+  });
+
+  touch(unit.syllabusId);
+  return { ok: true };
+}
+
+/**
+ * Removes a class and its material list.
+ *
+ * The remaining classes are NOT renumbered. A gap in the numbering is
+ * cosmetic; renumbering would silently change what "Class 2" means for a child
+ * who has already done it.
+ */
+export async function deleteClassSession(
+  sessionId: string,
+): Promise<Result> {
+  await requireTeacher();
+
+  const session = await db.query.classSessions.findFirst({
+    where: eq(classSessions.id, sessionId),
+  });
+  if (!session) return { ok: true };
+
+  const siblings = await db
+    .select({ id: classSessions.id })
+    .from(classSessions)
+    .where(eq(classSessions.syllabusUnitId, session.syllabusUnitId));
+
+  if (siblings.length <= 1) {
+    return { ok: false, error: "A unit needs at least one class." };
+  }
+
+  await db.delete(classSessions).where(eq(classSessions.id, sessionId));
+
+  const unit = await findUnit(session.syllabusUnitId);
+  if (unit) touch(unit.syllabusId);
+  return { ok: true };
 }
 
 export async function updateClassSession(
