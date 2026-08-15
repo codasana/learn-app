@@ -225,3 +225,130 @@ export async function renderAndStore(input: {
 
   return { renderId: render.id, fileUrl: publicUrl(key) };
 }
+
+/* ------------------------------------------------------------------ */
+/* Forms                                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Hosted forms.
+ *
+ * Provisioned from code rather than clicked together, so the field keys — the
+ * contract the webhook delivers under — live in this repository next to the
+ * code that reads them. A form built by hand in a dashboard is a contract
+ * nobody can diff.
+ *
+ * Design, theme and layout are deliberately not set here. Those belong in
+ * Automette's builder; this only decides what is asked.
+ */
+
+export type FormFieldSpec = {
+  key: string;
+  type:
+    | "text"
+    | "email"
+    | "tel"
+    | "number"
+    | "textarea"
+    | "select"
+    | "checkbox"
+    | "date";
+  label: string;
+  required?: boolean;
+  help?: string;
+  options?: { value: string; label: string }[];
+};
+
+export type Form = {
+  id: string;
+  title: string;
+  status: "draft" | "published";
+  version: number | null;
+  public_url: string | null;
+  embed_url: string | null;
+  fields?: FormFieldSpec[];
+};
+
+export async function listForms(): Promise<Form[]> {
+  const res = await call<{ forms: Form[] }>("/forms");
+  return res.forms;
+}
+
+export async function getForm(id: string): Promise<Form> {
+  return call<Form>(`/forms/${id}`);
+}
+
+export async function createForm(input: {
+  title: string;
+  description?: string;
+  submitLabel?: string;
+  fields: FormFieldSpec[];
+}): Promise<Form> {
+  return call<Form>("/forms", {
+    method: "POST",
+    body: {
+      title: input.title,
+      description: input.description,
+      submit_label: input.submitLabel,
+      fields: input.fields,
+    },
+  });
+}
+
+export async function publishForm(id: string): Promise<Form> {
+  return call<Form>(`/forms/${id}/publish`, { method: "POST" });
+}
+
+export type FormWebhook = {
+  id: string;
+  url: string;
+  active: boolean;
+  /** Returned ONLY when created. Store it then or lose it. */
+  secret?: string;
+  secret_hint?: string;
+};
+
+export async function createFormWebhook(
+  formId: string,
+  url: string,
+): Promise<FormWebhook> {
+  return call<FormWebhook>(`/forms/${formId}/webhooks`, {
+    method: "POST",
+    body: { url, events: ["form.submitted"] },
+  });
+}
+
+export async function listFormWebhooks(
+  formId: string,
+): Promise<FormWebhook[]> {
+  const res = await call<{ webhooks: FormWebhook[] }>(
+    `/forms/${formId}/webhooks`,
+  );
+  return res.webhooks;
+}
+
+export type FormSubmission = {
+  id: string;
+  submitted_at: string;
+  answers: Record<string, unknown>;
+};
+
+/**
+ * Submissions, for backfill.
+ *
+ * Webhooks are the live path; this is what recovers the ones missed while we
+ * were down. `since` is the whole point of it.
+ */
+export async function listSubmissions(
+  formId: string,
+  opts: { since?: string; limit?: number; cursor?: string } = {},
+): Promise<{ submissions: FormSubmission[]; next_cursor: string | null }> {
+  const q = new URLSearchParams();
+  if (opts.since) q.set("since", opts.since);
+  if (opts.limit) q.set("limit", String(opts.limit));
+  if (opts.cursor) q.set("cursor", opts.cursor);
+  const suffix = q.toString() ? `?${q}` : "";
+  return call<{ submissions: FormSubmission[]; next_cursor: string | null }>(
+    `/forms/${formId}/submissions${suffix}`,
+  );
+}
