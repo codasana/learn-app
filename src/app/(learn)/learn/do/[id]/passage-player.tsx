@@ -27,7 +27,7 @@ export function PassagePlayer({
   questions: Question[];
 }) {
   return (
-    <main className="mx-auto w-full max-w-md flex-1 px-6 py-10">
+    <main className="mx-auto w-full max-w-md flex-1 px-6 pt-4 pb-10">
       <h1 className="text-2xl font-bold">{title}</h1>
 
       <article className="mt-5 space-y-4 rounded-[var(--radius-card)] bg-[var(--surface)] p-6 text-lg leading-relaxed">

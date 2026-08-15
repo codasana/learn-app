@@ -59,7 +59,7 @@ export function WritingPlayer({
 
   if (feedback) {
     return (
-      <main className="mx-auto w-full max-w-md flex-1 px-6 py-10">
+      <main className="mx-auto w-full max-w-md flex-1 px-6 pt-4 pb-10">
         <h1 className="text-2xl font-bold">{title}</h1>
 
         <section className="mt-6 rounded-[var(--radius-card)] bg-[var(--panel-mint)] p-6">
@@ -105,7 +105,7 @@ export function WritingPlayer({
   }
 
   return (
-    <main className="mx-auto w-full max-w-md flex-1 px-6 py-10">
+    <main className="mx-auto w-full max-w-md flex-1 px-6 pt-4 pb-10">
       <h1 className="text-2xl font-bold">{title}</h1>
       <p className="mt-3 text-lg">{prompt}</p>
 

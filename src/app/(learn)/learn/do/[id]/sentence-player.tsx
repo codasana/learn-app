@@ -100,7 +100,7 @@ export function SentencePlayer({
   }
 
   return (
-    <main className="mx-auto w-full max-w-md flex-1 px-6 py-10">
+    <main className="mx-auto w-full max-w-md flex-1 px-6 pt-4 pb-10">
       <h1 className="text-2xl font-bold">{title}</h1>
       <p className="mt-2 text-[var(--ink-muted)]">
         Sentence {index + 1} of {items.length}. Tap the words in order.
