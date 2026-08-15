@@ -34,10 +34,9 @@ export default function BookPage() {
           The heading and the promise are ours: our voice, our typography, and
           indexable — an iframe's heading is not this page's heading.
 
-          The form still renders its own title and description underneath,
-          which duplicates this. Automette has been asked for an embed that
-          omits them, since a host page almost always supplies its own. Until
-          then the duplication is visible and nothing is public.
+          The form itself renders neither — `heading: null` and an empty
+          description, set through the API. It is fields and nothing else, so
+          the page owns the framing.
         */}
         <h1 className="text-3xl font-bold sm:text-4xl">Book a free class</h1>
         <p className="mt-4 text-lg text-[var(--ink-muted)]">
@@ -47,12 +46,9 @@ export default function BookPage() {
         </p>
 
         {/*
-          A lilac panel, matching every other section of the site.
-          
-          The embed paints its own near-white card inside it, so this reads as
-          a mat around a form rather than one flat surface — which is the
-          intended look, and the reason the padding is generous enough for the
-          border to be obviously deliberate.
+          A lilac panel, matching every other section of the site. The embed is
+          genuinely transparent, so the fields sit straight on it rather than
+          on a card of their own — one surface, not two.
         */}
         <div className="mt-8 rounded-[var(--radius-panel)] bg-[var(--panel-lilac)] p-4 sm:p-6">
           <AutometteForm src={embed} title="Book a free class" />
