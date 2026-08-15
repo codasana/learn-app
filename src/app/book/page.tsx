@@ -30,6 +30,15 @@ export default function BookPage() {
       <SiteHeader />
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-12">
+        {/*
+          The heading and the promise are ours: our voice, our typography, and
+          indexable — an iframe's heading is not this page's heading.
+
+          The form still renders its own title and description underneath,
+          which duplicates this. Automette has been asked for an embed that
+          omits them, since a host page almost always supplies its own. Until
+          then the duplication is visible and nothing is public.
+        */}
         <h1 className="text-3xl font-bold sm:text-4xl">Book a free class</h1>
         <p className="mt-4 text-lg text-[var(--ink-muted)]">
           Half an hour with Sheeba. She will talk to your child, get a sense of
@@ -37,11 +46,17 @@ export default function BookPage() {
           for them. Nothing to prepare, and nothing to pay.
         </p>
 
-        <div className="mt-8 rounded-[var(--radius-panel)] bg-[var(--panel-lilac)] p-4 sm:p-6">
+        {/*
+          White, not lilac. The embed paints its own near-white card, so a
+          coloured mat behind it reads as two surfaces disagreeing rather than
+          as a frame. Matching the surface makes the seam disappear. When the
+          embed can be made transparent this can go back to being a panel.
+        */}
+        <div className="mt-8 overflow-hidden rounded-[var(--radius-card)] bg-[var(--surface)]">
           <AutometteForm src={embed} title="Book a free class" />
         </div>
 
-        <p className="mt-8 text-[var(--ink-muted)]">
+        <p className="mt-8 text-center text-[var(--ink-muted)]">
           Would you rather see where your child stands first?{" "}
           <Link href="/check" className="text-[var(--primary)] underline underline-offset-2">
             The free check takes twelve minutes
