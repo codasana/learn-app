@@ -1,7 +1,10 @@
 # Feature request to Automette — a public Forms API
 
 **From:** English Ladder, an Automette customer
-**Status:** requested, not built
+**Status:** built 2026-08-15 — every endpoint below ships, plus
+`DELETE /api/v1/forms/:id/webhooks/:webhook_id` (per-endpoint rather than a
+collection delete, so removing one integration's webhook leaves the others).
+Docs: `/docs/forms/forms-api` and `/docs/api-reference/listForms`.
 **Contract wanted:** `/api/v1/forms*`, Bearer `dg_…`, same auth as `/renders`
 
 ---

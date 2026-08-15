@@ -23,16 +23,6 @@ import { brand } from "@/lib/brand";
  * are not placeholders waiting on photographs.
  */
 
-/**
- * Price is written and ready, but hidden until the figures are decided.
- *
- * Flip to true and the section returns exactly where it was — the argument for
- * showing it still holds: a parent who has to ask assumes it is expensive and
- * leaves. Remember to take the dashed borders and the zeroed numbers out of
- * `Price` at the same time.
- */
-const SHOW_PRICE = false;
-
 export const metadata: Metadata = {
   title: brand.tagline,
   description:
@@ -51,7 +41,7 @@ export default function Home() {
         <AWeek />
         <Teacher />
         <Abroad />
-        {SHOW_PRICE && <Price />}
+        <Price />
         <LastWord />
       </main>
       <SiteFooter />
@@ -301,51 +291,44 @@ function Abroad() {
 
 /* ------------------------------------------------------------------ */
 
+/**
+ * No number, and a reason.
+ *
+ * The fee is agreed per family after the free class — one child or a small
+ * group, two classes a week or one. That is a real reason not to print a
+ * price, but it only works if the page says it. A parent who finds no figure
+ * and no explanation concludes it is expensive and leaves, which is the exact
+ * outcome a page written to build trust cannot afford.
+ *
+ * So this section exists to answer the question rather than dodge it, and it
+ * leads with the part that costs nothing.
+ */
 function Price() {
   return (
     <section className="mx-auto w-full max-w-5xl px-6 pb-16">
-      <h2 className="text-3xl font-bold sm:text-4xl">What it costs</h2>
+      <div className="rounded-[var(--radius-panel)] bg-[var(--surface)] px-8 py-12 sm:px-14">
+        <h2 className="text-3xl font-bold sm:text-4xl">What it costs</h2>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2">
-        {[
-          ["In India", "₹0,000", "a month"],
-          ["Outside India", "$00", "a month"],
-        ].map(([where, amount, per]) => (
-          <div
-            key={where}
-            className="rounded-[var(--radius-card)] border-2 border-dashed border-[var(--border-strong)] bg-[var(--surface)] p-8"
-          >
-            <p className="text-sm font-semibold tracking-wide text-[var(--ink-faint)] uppercase">
-              {where}
-            </p>
-            <p className="mt-2 text-4xl font-bold">
-              {amount}{" "}
-              <span className="text-xl font-normal text-[var(--ink-muted)]">
-                {per}
-              </span>
-            </p>
-            <p className="mt-3 text-[var(--ink-muted)]">
-              Two live classes a week, all the practice in between, and a report
-              every term.
-            </p>
-          </div>
-        ))}
+        <div className="mt-5 max-w-2xl space-y-4 text-lg text-[var(--ink-muted)]">
+          <p>
+            <strong className="text-[var(--ink)]">
+              The first class is free, and there is nothing to pay until
+              you&rsquo;ve met her.
+            </strong>
+          </p>
+          <p>
+            After that it depends on what suits your child — one to one or a
+            small group, and how often. Sheeba works that out with you at the
+            end of the free class and tells you the fee then, in your own
+            currency. We would rather quote you honestly than print a number
+            that turns out not to apply.
+          </p>
+          <p>
+            No joining fee. No lock-in — a month&rsquo;s notice and
+            you&rsquo;re done.
+          </p>
+        </div>
       </div>
-
-      <p className="mt-6 text-[var(--ink-muted)]">
-        No joining fee. No lock-in — a month&rsquo;s notice and you&rsquo;re
-        done. The first class is free, and there is nothing to pay until you
-        have met her.
-      </p>
-
-      {/*
-        The dashed borders and zeroed figures are on purpose: this is the one
-        thing on the page that is not ready, and a made-up number would be
-        worse than an obvious gap. Set the real ones and the dashes come off.
-      */}
-      <p className="mt-3 text-sm text-[var(--ink-faint)]">
-        (Figures still to be set — the boxes stay dashed until they are.)
-      </p>
     </section>
   );
 }
