@@ -57,6 +57,10 @@ export default async function EnquiryPage({
         enquiry={{
           id: enquiry.id,
           status: enquiry.status,
+          parentName: enquiry.parentName,
+          parentEmail: enquiry.parentEmail,
+          whatsapp: enquiry.whatsapp,
+          childFirstName: enquiry.childFirstName,
           suggestedLevel: enquiry.suggestedLevel,
           startingLevel: enquiry.startingLevel,
           teacherNotes: enquiry.teacherNotes ?? "",

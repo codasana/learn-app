@@ -7,7 +7,22 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Notice, Select, Textarea } from "@/components/ui/field";
 import { toolTitle } from "@/lib/tools";
 
-import { issueToolLink, updateEnquiry } from "../actions";
+import { emailToolLink, issueToolLink, updateEnquiry } from "../actions";
+
+/**
+ * A wa.me link opens Sheeba's own WhatsApp with the message already written.
+ *
+ * Deliberately not a send. WhatsApp is a personal channel and these families
+ * are in it with her, not with the programme — the app writing the words is
+ * help; the app pressing send would be impersonation.
+ */
+function whatsappHref(number: string, text: string): string | null {
+  const digits = number.replace(/\D/g, "");
+  // Too short to be a real number with a country code on it. A wa.me link
+  // built from a local-format number opens a chat with a stranger.
+  if (digits.length < 8) return null;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+}
 
 type Run = {
   id: string;
@@ -42,6 +57,10 @@ export function EnquiryEditor({
   enquiry: {
     id: string;
     status: string;
+    parentName: string | null;
+    parentEmail: string | null;
+    whatsapp: string | null;
+    childFirstName: string | null;
     suggestedLevel: number | null;
     startingLevel: number | null;
     teacherNotes: string;
@@ -54,6 +73,7 @@ export function EnquiryEditor({
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [issued, setIssued] = useState<string | null>(null);
+  const [emailed, setEmailed] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   async function onSave(e: React.FormEvent<HTMLFormElement>) {
@@ -66,6 +86,22 @@ export function EnquiryEditor({
     router.refresh();
   }
 
+  async function onEmail() {
+    setPending(true);
+    setMessage(null);
+    const res = await emailToolLink(enquiry.id, "level_check");
+    setPending(false);
+    if (!res.ok) {
+      setMessage(res.error);
+      return;
+    }
+    setIssued(res.url);
+    setEmailed(res.sentTo);
+    setCopied(false);
+    router.refresh();
+  }
+
+  /** For WhatsApp, or for pasting somewhere we haven't thought of. */
   async function onIssue() {
     setPending(true);
     setMessage(null);
@@ -76,6 +112,7 @@ export function EnquiryEditor({
       return;
     }
     setIssued(`${window.location.origin}${res.url}`);
+    setEmailed(null);
     setCopied(false);
     router.refresh();
   }
@@ -143,26 +180,63 @@ export function EnquiryEditor({
           </ul>
         )}
 
-        <Button variant="secondary" disabled={pending} onClick={onIssue}>
-          Send them the level check
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button disabled={pending || !enquiry.parentEmail} onClick={onEmail}>
+            {pending ? "Sending…" : "Email them the check"}
+          </Button>
+          <Button variant="secondary" disabled={pending} onClick={onIssue}>
+            Just make a link
+          </Button>
+        </div>
+
+        {!enquiry.parentEmail && (
+          <p className="text-sm text-[var(--ink-muted)]">
+            No email address for this family — make a link and send it on
+            WhatsApp.
+          </p>
+        )}
 
         {issued && (
           <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--border-strong)] p-4">
-            <p className="text-sm text-[var(--ink-muted)]">
-              Their link — paste it into WhatsApp or an email:
-            </p>
+            {emailed ? (
+              <p className="text-sm font-medium text-[var(--correct)]">
+                Emailed to {emailed}.
+              </p>
+            ) : (
+              <p className="text-sm text-[var(--ink-muted)]">
+                Their link, tied to this family:
+              </p>
+            )}
+
             <p className="mt-1 font-mono text-sm break-all">{issued}</p>
-            <Button
-              variant="secondary"
-              className="mt-2"
-              onClick={() => {
-                navigator.clipboard?.writeText(issued);
-                setCopied(true);
-              }}
-            >
-              {copied ? "Copied" : "Copy"}
-            </Button>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(() => {
+                const href = enquiry.whatsapp
+                  ? whatsappHref(
+                      enquiry.whatsapp,
+                      `Hello${enquiry.parentName ? ` ${enquiry.parentName}` : ""}, here is the short English check for ${enquiry.childFirstName ?? "your child"}. It takes about twelve minutes and needs no sign-up.\n\n${issued}`,
+                    )
+                  : null;
+                return href ? (
+                  <Button asChild variant="secondary">
+                    <a href={href} target="_blank" rel="noreferrer">
+                      {emailed ? "Also send on WhatsApp" : "Send on WhatsApp"}
+                    </a>
+                  </Button>
+                ) : null;
+              })()}
+
+              <Button
+                variant="quiet"
+                onClick={() => {
+                  navigator.clipboard?.writeText(issued);
+                  setCopied(true);
+                }}
+              >
+                {copied ? "Copied" : "Copy the link"}
+              </Button>
+            </div>
           </div>
         )}
       </section>

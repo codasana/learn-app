@@ -6,7 +6,9 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { enquiries } from "@/db/schema";
+import { appUrl } from "@/lib/booking";
 import { syncLeadById } from "@/lib/leads";
+import { sendToolLink } from "@/lib/notify";
 import { requireTeacher } from "@/lib/session";
 import { createRun } from "@/lib/tool-runs";
 import type { ToolKey } from "@/lib/tools";
@@ -153,4 +155,54 @@ export async function issueToolLink(
 
   revalidatePath(`/teacher/enquiries/${enquiryId}`);
   return { ok: true, url: `/check/${run.token}` };
+}
+
+/**
+ * Issue the link AND send it, in one press.
+ *
+ * The button used to say "Send them the level check" and then hand Sheeba a
+ * URL to paste somewhere herself. We already know the address — we are holding
+ * it two lines above — so the copy was a promise the code did not keep, and
+ * the work it left behind was the fiddly, forgettable half.
+ *
+ * WhatsApp is still hers to press: a wa.me link opens her own account with the
+ * message written, which is right. Sending on someone's behalf into a personal
+ * chat is a different thing from sending an email from the programme, and it
+ * needs her hand on it.
+ */
+export async function emailToolLink(
+  enquiryId: string,
+  tool: ToolKey,
+): Promise<{ ok: true; url: string; sentTo: string } | { ok: false; error: string }> {
+  await requireTeacher();
+
+  const enquiry = await db.query.enquiries.findFirst({
+    where: eq(enquiries.id, enquiryId),
+  });
+  if (!enquiry) return { ok: false, error: "That enquiry no longer exists." };
+  if (!enquiry.parentEmail) {
+    return { ok: false, error: "We don't have an email address for them." };
+  }
+
+  const run = await createRun({
+    tool,
+    enquiryId,
+    childFirstName: enquiry.childFirstName,
+    childAgeBand: enquiry.childAgeBand,
+  });
+
+  const url = appUrl(`/check/${run.token}`);
+  const sent = await sendToolLink({
+    to: enquiry.parentEmail,
+    parentName: enquiry.parentName,
+    childFirstName: enquiry.childFirstName,
+    url,
+  });
+
+  // The run is left in place on a failed send. It costs nothing, and the link
+  // is still valid — she can copy it or send it on WhatsApp instead.
+  if (!sent.ok) return { ok: false, error: sent.error ?? "That didn't send." };
+
+  revalidatePath(`/teacher/enquiries/${enquiryId}`);
+  return { ok: true, url, sentTo: enquiry.parentEmail };
 }

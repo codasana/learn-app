@@ -125,6 +125,78 @@ export async function sendCheckResult(
 }
 
 /**
+ * Sheeba sending a family the check, before or after their class.
+ *
+ * Short on purpose. This one is from a person — she has usually spoken to
+ * them, or is about to — so it reads as a note rather than a campaign, and it
+ * carries one link and one instruction.
+ */
+export function toolLinkEmail({
+  parentName,
+  childFirstName,
+  url,
+}: {
+  parentName: string | null;
+  childFirstName: string | null;
+  url: string;
+}): { subject: string; text: string } {
+  const who = childFirstName ?? "your child";
+
+  const text = `${parentName ? `Hello ${parentName},` : "Hello,"}
+
+Here is the short English check for ${who}. It takes about twelve minutes,
+there is nothing to prepare, and it needs no sign-up — the link is already
+tied to you, so nobody will be asked for an email again.
+
+  ${url}
+
+It works best if ${who} does it alone, in one sitting. There is no pass mark
+and nothing rides on it: it just tells me where to begin.
+
+— Sheeba
+`;
+
+  return {
+    subject: `A short English check for ${childFirstName ?? "your child"}`,
+    text,
+  };
+}
+
+export async function sendToolLink(
+  args: Parameters<typeof toolLinkEmail>[0] & { to: string },
+): Promise<{ ok: boolean; error?: string }> {
+  if (!canSend()) {
+    return { ok: false, error: "Email isn't configured on this server." };
+  }
+  try {
+    const { subject, text } = toolLinkEmail(args);
+    await sendEmail({
+      to: args.to,
+      subject,
+      text,
+      fromName: brand.name,
+      replyTo: process.env.TEACHER_EMAIL ?? ADMIN_EMAIL,
+    });
+    return { ok: true };
+  } catch (err) {
+    /*
+     * The one send that DOES report failure.
+     *
+     * Everything else here is a side effect of something the user already
+     * achieved — the enquiry is saved whether or not the mail goes. This one
+     * IS the action: Sheeba pressed a button meaning "send it", and telling
+     * her it worked when it did not means a family silently never hears from
+     * her.
+     */
+    console.error("[notify] tool link FAILED", err);
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "That didn't send.",
+    };
+  }
+}
+
+/**
  * The teacher's copy. Automette covers the other path; this covers the check.
  *
  * It carries the score, because whether a lead is worth answering tonight or
