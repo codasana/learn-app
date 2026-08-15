@@ -104,20 +104,23 @@ export default async function TodayPage() {
         {activities.map((item) => {
           const done = completed.has(item.id);
           return (
-            <div
+            <Link
               key={item.id}
-              className={`rounded-[var(--radius-card)] px-5 py-5 ${
-                done ? "bg-[var(--correct-soft)]" : "bg-[var(--surface)]"
+              href={`/learn/do/${item.id}`}
+              className={`block rounded-[var(--radius-card)] px-5 py-5 transition-colors ${
+                done
+                  ? "bg-[var(--correct-soft)]"
+                  : "bg-[var(--surface)] hover:bg-[var(--surface-sunken)]"
               }`}
             >
               <p className="text-lg font-bold">{item.title}</p>
               <p className="mt-1 text-[var(--ink-muted)]">
                 {done
-                  ? "Done"
+                  ? "Done — have another go if you like"
                   : (CONTENT_TYPES[item.type as ContentTypeKey]?.label ??
                     item.type)}
               </p>
-            </div>
+            </Link>
           );
         })}
       </section>
