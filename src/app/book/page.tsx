@@ -47,12 +47,14 @@ export default function BookPage() {
         </p>
 
         {/*
-          White, not lilac. The embed paints its own near-white card, so a
-          coloured mat behind it reads as two surfaces disagreeing rather than
-          as a frame. Matching the surface makes the seam disappear. When the
-          embed can be made transparent this can go back to being a panel.
+          A lilac panel, matching every other section of the site.
+          
+          The embed paints its own near-white card inside it, so this reads as
+          a mat around a form rather than one flat surface — which is the
+          intended look, and the reason the padding is generous enough for the
+          border to be obviously deliberate.
         */}
-        <div className="mt-8 overflow-hidden rounded-[var(--radius-card)] bg-[var(--surface)]">
+        <div className="mt-8 rounded-[var(--radius-panel)] bg-[var(--panel-lilac)] p-4 sm:p-6">
           <AutometteForm src={embed} title="Book a free class" />
         </div>
 
