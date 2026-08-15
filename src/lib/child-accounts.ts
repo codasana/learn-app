@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { childProfiles, users } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { createAccount } from "@/lib/create-account";
 import {
   hasRealEmail,
   normaliseUsername,
@@ -68,30 +69,21 @@ export async function createChildLogin({
       ? email.toLowerCase()
       : placeholderEmailFor(username);
 
-  // Go through Better Auth so the password hash matches what sign-in verifies.
-  // `username` comes from the username plugin, which the inferred body type for
-  // signUpEmail does not pick up, hence the cast.
-  const created = (await auth.api.signUpEmail({
-    body: {
-      email: loginEmail,
-      password,
-      name: child.firstName,
-      username,
-    },
-  } as never)) as unknown as { user: { id: string } };
-
-  const newUserId = created.user.id;
-
-  // `role` is `input: false` in the auth config, so it can only be set here,
-  // server-side. A student must never be able to reach parent or teacher routes.
-  await db
-    .update(users)
-    .set({ role: "student", displayUsername: rawUsername.trim() })
-    .where(eq(users.id, newUserId));
+  // Deliberately NOT signUpEmail: it would write a session cookie and sign the
+  // caller in as the child. Whoever sets this up — parent or teacher — must
+  // stay themselves. See lib/create-account.
+  const created = await createAccount({
+    email: loginEmail,
+    name: child.firstName,
+    password,
+    role: "student",
+    username,
+    displayUsername: rawUsername.trim(),
+  });
 
   await db
     .update(childProfiles)
-    .set({ userId: newUserId })
+    .set({ userId: created.id })
     .where(eq(childProfiles.id, childId));
 
   return { ok: true, username };
