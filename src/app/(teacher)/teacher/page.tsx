@@ -14,6 +14,7 @@ import {
 } from "@/db/schema";
 import { requireTeacher } from "@/lib/session";
 
+import { needsAttention } from "./attention-actions";
 import { Today } from "./today";
 import { classesOn } from "./today-actions";
 
@@ -50,32 +51,10 @@ async function counts() {
   };
 }
 
-function Stat({
-  label,
-  value,
-  href,
-  hint,
-}: {
-  label: string;
-  value: number;
-  href?: string;
-  hint?: string;
-}) {
-  const inner = (
-    <div className="rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 transition-colors hover:border-[var(--border-strong)]">
-      <p className="text-sm text-[var(--ink-muted)]">{label}</p>
-      <p className="mt-1 text-3xl font-semibold tabular-nums">{value}</p>
-      {hint ? (
-        <p className="mt-1 text-sm text-[var(--ink-faint)]">{hint}</p>
-      ) : null}
-    </div>
-  );
-  return href ? <Link href={href}>{inner}</Link> : inner;
-}
-
 export default async function TeacherHome() {
   const user = await requireTeacher();
   const today = await classesOn();
+  const attention = await needsAttention();
   const c = await counts();
 
   const firstName = user.name?.split(/[\s@.]/)[0] ?? "there";
@@ -85,7 +64,7 @@ export default async function TeacherHome() {
       <div>
         <h1 className="text-2xl font-semibold">Hello, {firstName}</h1>
         <p className="text-[var(--ink-muted)]">
-          Everything you need for this unit is here.
+          Everything you need for this week is here.
         </p>
       </div>
 
@@ -109,40 +88,28 @@ export default async function TeacherHome() {
         </Link>
       )}
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium tracking-wide text-[var(--ink-faint)] uppercase">
-          Your content
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Stat
-            label="Things you've written"
-            value={c.items}
-            href="/teacher/content"
-            hint={`${c.published} published`}
-          />
-          <Stat label="Syllabuses" value={c.syllabi} href="/teacher/syllabus" />
-          <Stat
-            label="Writing to review"
-            value={c.awaiting}
-            href="/teacher/writing"
-          />
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium tracking-wide text-[var(--ink-faint)] uppercase">
-          Your students
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Stat label="Children" value={c.children} href="/teacher/students" />
-          <Stat label="Currently learning" value={c.active} />
-          <Stat
-            label="Families deciding"
-            value={c.openLeads}
-            href="/teacher/enquiries"
-          />
-        </div>
-      </section>
+      {attention.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium tracking-wide text-[var(--ink-faint)] uppercase">
+            Worth a look
+          </h2>
+          <ul className="space-y-2">
+            {attention.map((a, i) => (
+              <li key={`${a.kind}-${i}`}>
+                <Link
+                  href={a.href}
+                  className="flex flex-wrap items-baseline gap-x-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 transition-colors hover:border-[var(--border-strong)]"
+                >
+                  <span className="font-medium">{a.title}</span>
+                  <span className="text-sm text-[var(--ink-faint)]">
+                    {a.detail}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {c.items === 0 && (
         <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--border-strong)] bg-[var(--surface)] px-6 py-8">
