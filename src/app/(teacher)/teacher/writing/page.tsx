@@ -1,17 +1,97 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
-import { ComingSoon } from "@/components/ui/coming-soon";
+import { avatarEmoji } from "@/lib/avatars";
 import { requireTeacher } from "@/lib/session";
+
+import { listForReview, listReleased } from "./actions";
 
 export const metadata: Metadata = { title: "Writing" };
 
 export default async function WritingPage() {
   await requireTeacher();
+
+  const [waiting, released] = await Promise.all([
+    listForReview(),
+    listReleased(),
+  ]);
+
   return (
-    <ComingSoon
-      title="Writing"
-      what="Each child's writing beside a suggested response you can edit, add a voice note to, and release. Nothing reaches a child until you release it."
-      when="Once children can submit writing, in November."
-    />
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-2xl font-semibold">Writing</h1>
+        <p className="max-w-2xl text-[var(--ink-muted)]">
+          Everything children have handed in. Nothing reaches them until you
+          send it back, and what you write is the only thing they see.
+        </p>
+      </div>
+
+      {waiting.length === 0 ? (
+        <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--border-strong)] bg-[var(--surface)] px-6 py-10">
+          <p className="font-medium">Nothing waiting.</p>
+          <p className="mt-1 text-[var(--ink-muted)]">
+            When a child hands in a piece of writing it appears here, oldest
+            first.
+          </p>
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {waiting.map((w) => (
+              <li key={w.id}>
+                <Link
+                  href={`/teacher/writing/${w.id}`}
+                  className="flex items-start gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 transition-colors hover:border-[var(--border-strong)]"
+                >
+                  <span className="text-2xl" aria-hidden="true">
+                    {avatarEmoji(w.avatar)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="font-medium">{w.childName}</span>
+                    <span className="text-[var(--ink-muted)]">
+                      {" "}
+                      · {w.taskTitle}
+                    </span>
+                    <span className="mt-0.5 block truncate text-sm text-[var(--ink-faint)]">
+                      {w.body?.slice(0, 90)}
+                    </span>
+                  </span>
+                  <span
+                    className={`shrink-0 text-sm ${
+                      w.overdue
+                        ? "text-[var(--accent-ink)]"
+                        : "text-[var(--ink-faint)]"
+                    }`}
+                  >
+                    {w.waitingLabel}
+                  </span>
+                </Link>
+              </li>
+            ))}
+        </ul>
+      )}
+
+      {released.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium tracking-wide text-[var(--ink-faint)] uppercase">
+            Sent back
+          </h2>
+          <ul className="space-y-1 text-sm">
+            {released.map((r) => (
+              <li key={r.id}>
+                <Link
+                  href={`/teacher/writing/${r.id}`}
+                  className="text-[var(--ink-muted)] hover:text-[var(--ink)]"
+                >
+                  {r.childName} · {r.taskTitle}
+                  {r.releasedAt
+                    ? ` · ${r.releasedAt.toLocaleDateString("en-GB")}`
+                    : ""}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
   );
 }
