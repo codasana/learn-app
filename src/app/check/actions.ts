@@ -7,8 +7,10 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { enquiries, toolRuns } from "@/db/schema";
+import { sendCheckResult, sendEnquiryAlert } from "@/lib/notify";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
 import { attachRunToEnquiry, completeRun, createRun } from "@/lib/tool-runs";
+import { levelCheck } from "@/lib/tools";
 
 /**
  * Starting the check. No account, no email, no consent gate — that is the
@@ -97,6 +99,35 @@ export async function requestReport(token: string, formData: FormData) {
     .returning({ id: enquiries.id });
 
   await attachRunToEnquiry(run.id, enquiry.id);
+
+  /*
+   * Saved first, told second, and never the other way round.
+   *
+   * A lead exists the moment its row is written. If SES is down, or the
+   * address bounces, or the whole of eu-west-1 is having an afternoon, the
+   * family is still in the pipeline and Sheeba can pick them up by hand —
+   * so nothing below is allowed to fail this action. sendCheckResult and
+   * sendEnquiryAlert swallow their own errors for the same reason.
+   */
+  const parsedResult = levelCheck.resultSchema.safeParse(run.result);
+  if (parsedResult.success) {
+    const partial = levelCheck.partialResult(parsedResult.data);
+    await sendCheckResult({
+      to: v.parentEmail.toLowerCase(),
+      parentName: v.parentName,
+      childFirstName: run.childFirstName,
+      token,
+      result: partial,
+    });
+    await sendEnquiryAlert({
+      enquiryId: enquiry.id,
+      parentName: v.parentName,
+      parentEmail: v.parentEmail.toLowerCase(),
+      whatsapp: v.whatsapp,
+      childFirstName: run.childFirstName,
+      result: partial,
+    });
+  }
 
   return { ok: true as const };
 }

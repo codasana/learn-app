@@ -27,6 +27,7 @@ export function CheckRunner({
   listeningScript,
   sectionLabels,
   result,
+  bookingUrl,
 }: {
   token: string;
   childFirstName: string | null;
@@ -36,6 +37,7 @@ export function CheckRunner({
   listeningScript: string;
   sectionLabels: Record<string, string>;
   result: Partial | null;
+  bookingUrl: string | null;
 }) {
   if (result) {
     return (
@@ -44,6 +46,7 @@ export function CheckRunner({
         childFirstName={childFirstName}
         alreadyKnown={alreadyKnown}
         result={result}
+        bookingUrl={bookingUrl}
       />
     );
   }
@@ -419,11 +422,13 @@ function Result({
   childFirstName,
   alreadyKnown,
   result,
+  bookingUrl,
 }: {
   token: string;
   childFirstName: string | null;
   alreadyKnown: boolean;
   result: Partial;
+  bookingUrl: string | null;
 }) {
   const [sent, setSent] = useState(alreadyKnown);
   const [pending, setPending] = useState(false);
@@ -491,15 +496,41 @@ function Result({
       </div>
 
       {sent ? (
+        /*
+          Booking belongs HERE, not only in the email.
+          The parent is reading this now, having just typed their address.
+          Making them wait for an email to do the one thing we want them to do
+          loses most of them between the two — so the class is offered on the
+          screen they are already on, and the email is the reminder rather than
+          the route.
+        */
         <div className="mt-8 rounded-[var(--radius-card)] bg-[var(--correct-soft)] p-5">
           <p className="font-medium text-[var(--correct)]">
-            Thank you — we have what we need.
+            Thank you — that&rsquo;s on its way to you.
           </p>
-          <p className="mt-1 text-[var(--ink-muted)]">
-            The full report goes out by email, and it comes with a free class
-            with the teacher. She reads every one of these herself, so it may
-            take a day.
-          </p>
+          {bookingUrl ? (
+            <>
+              <p className="mt-1 text-[var(--ink-muted)]">
+                The next step is a free half-hour class with Sheeba. Pick a time
+                that suits you — you&rsquo;ll see them in your own timezone.
+              </p>
+              <Button asChild size="lg" className="mt-4">
+                <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
+                  Pick a time
+                </a>
+              </Button>
+              <p className="mt-3 text-sm text-[var(--ink-faint)]">
+                The one-page report follows in a day or so — Sheeba writes each
+                one herself.
+              </p>
+            </>
+          ) : (
+            <p className="mt-1 text-[var(--ink-muted)]">
+              Sheeba reads every one of these herself, so it may take a day. She
+              will send the report and a few times for a free class that work
+              where you are.
+            </p>
+          )}
         </div>
       ) : (
         <form onSubmit={onSubmit} className="mt-8 space-y-5">

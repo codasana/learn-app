@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { bookingUrl } from "@/lib/booking";
 import { brand } from "@/lib/brand";
 import { levelCheck, TOOLS } from "@/lib/tools";
 import { findRunByToken } from "@/lib/tool-runs";
@@ -58,6 +59,11 @@ export default async function CheckRunPage({
       listeningScript={levelCheck.LISTENING_SCRIPT}
       sectionLabels={levelCheck.SECTION_LABELS}
       result={result?.success ? levelCheck.partialResult(result.data) : null}
+      // Read on the server: the runner is a client component and CAL_BOOKING_URL
+      // is not a NEXT_PUBLIC_ value, so it has to be handed down rather than
+      // looked up. Null when unset, and every use degrades to "she will write
+      // to you with times" rather than showing a dead button.
+      bookingUrl={bookingUrl()}
     />
   );
 }
