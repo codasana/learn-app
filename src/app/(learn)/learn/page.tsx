@@ -126,6 +126,15 @@ export default async function TodayPage() {
         })}
       </section>
 
+      <div className="mt-8">
+        <Link
+          href="/learn/done"
+          className="block rounded-[var(--radius-card)] px-5 py-4 text-center text-[var(--ink-muted)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink)]"
+        >
+          What you&rsquo;ve done before
+        </Link>
+      </div>
+
       {known > 0 && (
         <p className="mt-10 text-center text-[var(--ink-muted)]">
           You know <strong className="text-[var(--ink)]">{known}</strong>{" "}

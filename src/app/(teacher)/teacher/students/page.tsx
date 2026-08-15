@@ -42,7 +42,7 @@ export default async function StudentsPage() {
             <li key={s.childId}>
               <Link
                 href={`/teacher/students/${s.childId}`}
-                className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 transition-colors hover:border-[var(--border-strong)]"
+                className="flex items-start gap-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 transition-colors hover:border-[var(--border-strong)] sm:items-center"
               >
                 <span className="text-2xl" aria-hidden="true">
                   {avatarEmoji(s.avatar)}
@@ -54,12 +54,19 @@ export default async function StudentsPage() {
                     {" "}
                     · {AGE_BANDS[s.ageBand]}
                   </span>
-                  <span className="block text-sm text-[var(--ink-faint)]">
+                  <span className="block truncate text-sm text-[var(--ink-faint)]">
                     {s.parentName} · {s.parentEmail}
+                  </span>
+                  {/* On a phone this sits under the name rather than fighting
+                      it for the same row. */}
+                  <span className="mt-1 block text-sm text-[var(--ink-muted)] sm:hidden">
+                    {s.syllabusName
+                      ? `${s.syllabusName} · ${s.unitLabel?.toLowerCase() ?? "unit"} ${s.currentUnit}`
+                      : "Not on a syllabus yet"}
                   </span>
                 </span>
 
-                <span className="text-sm text-[var(--ink-muted)]">
+                <span className="hidden text-sm text-[var(--ink-muted)] sm:inline">
                   {s.syllabusName ? (
                     <>
                       {s.syllabusName}
@@ -76,7 +83,7 @@ export default async function StudentsPage() {
                 </span>
 
                 <span
-                  className="text-sm text-[var(--ink-faint)]"
+                  className="hidden shrink-0 text-sm text-[var(--ink-faint)] sm:inline"
                   title={
                     s.childUserId
                       ? "This child can sign in on their own"
