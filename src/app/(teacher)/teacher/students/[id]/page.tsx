@@ -10,6 +10,9 @@ import { AGE_BANDS } from "@/lib/content-types";
 import { requireTeacher } from "@/lib/session";
 
 import { availableSyllabi, unitsForChild } from "../actions";
+import { ClassList } from "./class-list";
+import { recentFor, upcomingFor } from "./schedule-actions";
+import { SlotEditor } from "./slot-editor";
 import { StudentEditor } from "./student-editor";
 
 export const metadata: Metadata = { title: "Student" };
@@ -58,10 +61,28 @@ export default async function StudentPage({
     )
     .limit(1);
 
-  const [syllabuses, units] = await Promise.all([
+  const [syllabuses, units, upcoming, recent] = await Promise.all([
     availableSyllabi(),
     unitsForChild(id),
+    upcomingFor(id),
+    recentFor(id),
   ]);
+
+  // The slot lives on the active enrolment; there is nothing to schedule
+  // before a child is on a syllabus.
+  const [live] = await db
+    .select({
+      slotDays: enrollments.slotDays,
+      slotTime: enrollments.slotTime,
+      slotTimezone: enrollments.slotTimezone,
+      durationMin: enrollments.durationMin,
+      meetingUrl: enrollments.meetingUrl,
+    })
+    .from(enrollments)
+    .where(
+      and(eq(enrollments.childId, id), eq(enrollments.status, "active")),
+    )
+    .limit(1);
 
   return (
     <div className="space-y-6">
@@ -86,6 +107,59 @@ export default async function StudentPage({
           Times shown to this family in {parent?.timezone}
         </p>
       </div>
+
+      {live && (
+        <>
+          <SlotEditor
+            childId={child.id}
+            firstName={child.firstName}
+            teacherTimezone={live.slotTimezone}
+            familyTimezone={parent?.timezone ?? live.slotTimezone}
+            slot={{
+              days: live.slotDays,
+              time: live.slotTime,
+              durationMin: live.durationMin,
+              meetingUrl: live.meetingUrl,
+            }}
+          />
+
+          <section className="space-y-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-5">
+            <h2 className="font-medium">Coming up</h2>
+            <ClassList
+              firstName={child.firstName}
+              teacherTimezone={live.slotTimezone}
+              familyTimezone={parent?.timezone ?? live.slotTimezone}
+              classes={upcoming.map((c) => ({
+                id: c.id,
+                startsAt: c.startsAt.toISOString(),
+                durationMin: c.durationMin,
+                status: c.status,
+                meetingUrl: c.meetingUrl,
+              }))}
+            />
+          </section>
+
+          {recent.some((r) => r.attended) && (
+            <section className="space-y-2 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-5">
+              <h2 className="font-medium">Recent classes</h2>
+              <ul className="space-y-1 text-sm text-[var(--ink-muted)]">
+                {recent
+                  .filter((r) => r.attended)
+                  .map((r) => (
+                    <li key={r.id}>
+                      {r.startsAt.toLocaleDateString("en-GB")} ·{" "}
+                      {r.attended === "present"
+                        ? "came"
+                        : r.attended === "absent"
+                          ? "missed"
+                          : "called off"}
+                    </li>
+                  ))}
+              </ul>
+            </section>
+          )}
+        </>
+      )}
 
       <StudentEditor
         childId={child.id}

@@ -14,6 +14,9 @@ import {
 } from "@/db/schema";
 import { requireTeacher } from "@/lib/session";
 
+import { Today } from "./today";
+import { classesOn } from "./today-actions";
+
 export const metadata: Metadata = { title: "Home" };
 
 async function counts() {
@@ -72,6 +75,7 @@ function Stat({
 
 export default async function TeacherHome() {
   const user = await requireTeacher();
+  const today = await classesOn();
   const c = await counts();
 
   const firstName = user.name?.split(/[\s@.]/)[0] ?? "there";
@@ -84,6 +88,13 @@ export default async function TeacherHome() {
           Everything you need for this unit is here.
         </p>
       </div>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium tracking-wide text-[var(--ink-faint)] uppercase">
+          Today
+        </h2>
+        <Today classes={today.classes} timezone={today.timezone} />
+      </section>
 
       {c.awaiting > 0 && (
         <Link
