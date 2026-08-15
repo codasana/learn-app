@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { TagList } from "@/components/ui/tag";
 import {
   AGE_BANDS,
   CONTENT_GROUPS,
@@ -144,12 +145,13 @@ export default async function ContentPage({ searchParams }: PageProps<"/teacher/
                     {CONTENT_TYPES[item.type as ContentTypeKey]?.label ??
                       item.type}
                   </td>
-                  <td className="px-4 py-2.5 text-[var(--ink-muted)]">
-                    {item.tags.length > 0 ? (
-                      item.tags.join(" · ")
-                    ) : (
-                      <span className="text-[var(--ink-faint)]">—</span>
-                    )}
+                  <td className="px-4 py-2.5">
+                    <TagList
+                      tags={item.tags}
+                      hrefFor={(tag) =>
+                        `/teacher/content?tag=${encodeURIComponent(tag)}`
+                      }
+                    />
                   </td>
                   <td className="px-4 py-2.5 text-[var(--ink-muted)]">
                     {AGE_BANDS[item.ageBand]}

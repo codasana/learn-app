@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Notice } from "@/components/ui/field";
 import { signIn } from "@/lib/auth-client";
+import { homeFor } from "@/lib/home-for";
 
 export function LoginForm() {
   const router = useRouter();
@@ -23,7 +24,7 @@ export function LoginForm() {
 
     // Parents and staff sign in with an email; children sign in with the
     // username their parent set for them, since they may have no email at all.
-    const { error } = identifier.includes("@")
+    const { data, error } = identifier.includes("@")
       ? await signIn.email({ email: identifier, password })
       : await signIn.username({ username: identifier.toLowerCase(), password });
 
@@ -36,7 +37,10 @@ export function LoginForm() {
       return;
     }
 
-    router.push("/");
+    // Straight to their own screen. Landing everyone on the marketing page
+    // made Sheeba sign in and then go looking for her classes.
+    const role = (data?.user as { role?: string } | undefined)?.role;
+    router.push(homeFor(role));
     router.refresh();
   }
 

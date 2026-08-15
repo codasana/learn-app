@@ -245,12 +245,21 @@ async function main() {
     ageBand: "any" as const,
     audience: "student" as const,
     status: "published" as const,
-    tags: ["week 1", "all about me", "i am / i have / i like"],
+    /*
+     * No tags here on purpose. Tags describe what a piece is ABOUT, so they
+     * belong to the piece, not to the batch — a shared default gave all
+     * thirteen items the same tags and made filtering by tag pointless.
+     *
+     * They also never encode position. A "week 1" tag goes stale the moment
+     * Sheeba reuses a passage in unit 5, or skips the unit for one child.
+     */
+    tags: [] as string[],
   };
 
   const vocabId = await make({
     ...base,
-    title: "Week 1 words — All About Me",
+    title: "All About Me — words",
+    tags: ["all about me", "introductions"],
     type: "vocab_set",
     body: {
       words: VOCAB.map(([word, meaning, exampleSentence]) => ({
@@ -269,6 +278,7 @@ async function main() {
   const meeraId = await make({
     ...base,
     title: "Meet Meera",
+    tags: ["all about me", "introductions", "school"],
     type: "passage",
     // The comprehension questions are asked aloud in class, so they live in
     // the class plan rather than here — the child reads this one cold.
@@ -278,6 +288,7 @@ async function main() {
   const slidesId = await make({
     ...base,
     title: "What makes a sentence",
+    tags: ["sentences", "capital letters", "full stops"],
     type: "slides",
     status: "draft",
     body: {
@@ -289,6 +300,7 @@ async function main() {
   const roleplayId = await make({
     ...base,
     title: "“Be Meera!” role-play",
+    tags: ["introductions", "speaking aloud"],
     type: "activity",
     audience: "teacher",
     body: {
@@ -300,6 +312,7 @@ async function main() {
   const plannerId = await make({
     ...base,
     title: "Writing planner: three boxes",
+    tags: ["planning", "all about me"],
     type: "worksheet",
     status: "draft",
     body: {
@@ -311,6 +324,7 @@ async function main() {
   const threeThingsId = await make({
     ...base,
     title: "“Three things about me” game",
+    tags: ["introductions", "i am / i have / i like"],
     type: "activity",
     audience: "teacher",
     body: {
@@ -322,6 +336,7 @@ async function main() {
   const capitalsId = await make({
     ...base,
     title: "Capitals and full stops practice",
+    tags: ["capital letters", "full stops"],
     type: "worksheet",
     status: "draft",
     body: {
@@ -333,6 +348,7 @@ async function main() {
   const arjunId = await make({
     ...base,
     title: "Arjun and His Bicycle",
+    tags: ["hobbies", "family"],
     type: "passage",
     body: {
       paragraphs: ARJUN,
@@ -343,6 +359,7 @@ async function main() {
   const zaraId = await make({
     ...base,
     title: "Zara's New School",
+    tags: ["school", "feelings"],
     type: "passage",
     body: {
       paragraphs: ZARA,
@@ -353,6 +370,7 @@ async function main() {
   const listeningId = await make({
     ...base,
     title: "Dev introduces himself",
+    tags: ["introductions", "listening"],
     type: "listening",
     status: "draft",
     body: {
@@ -364,7 +382,8 @@ async function main() {
 
   const builderId = await make({
     ...base,
-    title: "Week 1 sentence builder",
+    title: "All About Me — sentence builder",
+    tags: ["i am / i have / i like", "sentences"],
     type: "sentence_builder",
     body: {
       items: SENTENCES.map(([tiles, correctSentence]) => ({
@@ -377,6 +396,7 @@ async function main() {
   const writingId = await make({
     ...base,
     title: "Three sentences about yourself",
+    tags: ["introductions", "i am / i have / i like"],
     type: "writing_task",
     body: {
       prompt:
@@ -395,7 +415,8 @@ async function main() {
 
   const quizId = await make({
     ...base,
-    title: "Week 1 quiz — All About Me",
+    title: "All About Me — quiz",
+    tags: ["all about me"],
     type: "quiz",
     body: { questions: QUIZ.map(([p, o, c]) => q(p, o, c)) },
   });
