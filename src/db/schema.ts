@@ -124,11 +124,16 @@ export const writingStatus = pgEnum("writing_status", [
   "redrafted",
 ]);
 
+/**
+ * `check_report` was `placement_report` until the funnel was renamed. The tool
+ * is "the check", the people in it are enquiries, and a document kind called
+ * placement was the last thing still speaking the old language.
+ */
 export const documentKind = pgEnum("document_kind", [
   "certificate",
   "term_report",
   "midterm_report",
-  "placement_report",
+  "check_report",
   "achievement_card",
   "share_card",
 ]);
