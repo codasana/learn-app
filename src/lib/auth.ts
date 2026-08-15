@@ -68,13 +68,25 @@ export const auth = betterAuth({
         // A user must never be able to promote themselves to teacher/owner.
         input: false,
       },
-      pinHash: { type: "string", required: false, input: false },
+      /*
+       * `input: false` stops a user writing this. `returned: false` stops
+       * Better Auth putting it in the session payload, which it otherwise
+       * does — the hash was going out in the sign-in response. It guards four
+       * digits, so a hash in the child's browser is the same as no PIN.
+       */
+      pinHash: {
+        type: "string",
+        required: false,
+        input: false,
+        returned: false,
+      },
       timezone: {
         type: "string",
         required: false,
         defaultValue: "Asia/Kolkata",
       },
-      whatsapp: { type: "string", required: false },
+      /* A parent's phone number is not the child's business either. */
+      whatsapp: { type: "string", required: false, returned: false },
     },
   },
 
