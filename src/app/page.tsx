@@ -30,19 +30,18 @@ export const metadata: Metadata = {
 };
 
 /**
- * Where the "book a free class" form lives.
+ * Whether there is a booking page to point at.
  *
- * Linked rather than framed. Automette's embed does not report its height to
- * the host page, so an iframe would need a fixed height and give a phone two
- * scrollbars — worse than a clean hand-off. Raised with them; not worth a
- * compromise on the page in the meantime.
+ * The form is embedded on /book now rather than linked out — Automette added
+ * height reporting, so it can size itself and a parent never leaves this
+ * domain at the moment they are about to hand over their email.
  *
- * Undefined until the form exists, and every button that points at it simply
- * does not render. A dead link on the one page a stranger judges you by is
- * worse than one fewer button.
+ * Null until the form exists, and every button that points at it simply does
+ * not render. A dead link on the one page a stranger judges you by is worse
+ * than one fewer button.
  */
 function bookingUrl(): string | null {
-  return process.env.AUTOMETTE_FORM_URL || null;
+  return process.env.AUTOMETTE_FORM_URL ? "/book" : null;
 }
 
 export default function Home() {
@@ -289,7 +288,7 @@ function Teacher({ booking }: { booking: string | null }) {
                 variant="secondary"
                 className="rounded-[var(--radius-lg)] px-6 py-4"
               >
-                <a href={booking}>Book a free class with her</a>
+                <Link href={booking}>Book a free class with her</Link>
               </Button>
             </div>
           )}
@@ -387,7 +386,7 @@ function LastWord({ booking }: { booking: string | null }) {
               variant="secondary"
               className="rounded-[var(--radius-lg)] border-0 bg-[var(--surface)] px-6 py-4"
             >
-              <a href={booking}>Or just book a class</a>
+              <Link href={booking}>Or just book a class</Link>
             </Button>
           )}
         </div>
