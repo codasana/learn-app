@@ -128,10 +128,10 @@ export default async function TodayPage() {
 
       <div className="mt-8">
         <Link
-          href="/learn/done"
+          href="/learn/units"
           className="block rounded-[var(--radius-card)] px-5 py-4 text-center text-[var(--ink-muted)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink)]"
         >
-          What you&rsquo;ve done before
+          All your {learner.enrolment.label.unitLabelPlural.toLowerCase()}
         </Link>
       </div>
 
