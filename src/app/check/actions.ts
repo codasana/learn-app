@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { enquiries, toolRuns } from "@/db/schema";
+import { syncLeadById } from "@/lib/leads";
 import { sendCheckResult, sendEnquiryAlert } from "@/lib/notify";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
 import { attachRunToEnquiry, completeRun, createRun } from "@/lib/tool-runs";
@@ -128,6 +129,8 @@ export async function requestReport(token: string, formData: FormData) {
       result: partial,
     });
   }
+
+  await syncLeadById(enquiry.id);
 
   return { ok: true as const };
 }

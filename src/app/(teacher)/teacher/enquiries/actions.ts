@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { enquiries } from "@/db/schema";
+import { syncLeadById } from "@/lib/leads";
 import { requireTeacher } from "@/lib/session";
 import { createRun } from "@/lib/tool-runs";
 import type { ToolKey } from "@/lib/tools";
@@ -55,6 +56,8 @@ export async function createEnquiry(
       source: "demo_form",
     })
     .returning({ id: enquiries.id });
+
+  await syncLeadById(row.id);
 
   revalidatePath("/teacher/enquiries");
   return { ok: true, id: row.id };
@@ -111,6 +114,12 @@ export async function updateEnquiry(
       updatedAt: new Date(),
     })
     .where(eq(enquiries.id, id));
+
+  // The stage a parent is at is the whole input to their automation, so this
+  // is the most important sync of the lot: leaving Loops on "enquired" after
+  // Sheeba marks someone enrolled means a paying customer keeps getting
+  // "still thinking about it?" mail.
+  await syncLeadById(id);
 
   revalidatePath("/teacher/enquiries");
   revalidatePath(`/teacher/enquiries/${id}`);

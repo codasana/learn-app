@@ -7,6 +7,7 @@ import {
   parseFormSubmitted,
   verifyWebhook,
 } from "@/lib/automette-webhooks";
+import { syncLeadById } from "@/lib/leads";
 
 import { readAnswers } from "./read-answers";
 
@@ -59,18 +60,31 @@ export async function POST(req: Request) {
 
   const a = readAnswers(answers);
 
-  await db.insert(enquiries).values({
-    parentName: a.parentName,
-    parentEmail: a.parentEmail,
-    whatsapp: a.whatsapp,
-    childFirstName: a.childFirstName,
-    childAgeBand: a.childAgeBand,
-    childGrade: a.childGrade,
-    timezone: a.timezone,
-    source: "demo_form",
-    notes: a.message,
-    autometteSubmissionId: submission_id,
-  });
+  const [row] = await db
+    .insert(enquiries)
+    .values({
+      parentName: a.parentName,
+      parentEmail: a.parentEmail,
+      whatsapp: a.whatsapp,
+      childFirstName: a.childFirstName,
+      childAgeBand: a.childAgeBand,
+      childGrade: a.childGrade,
+      timezone: a.timezone,
+      source: "demo_form",
+      notes: a.message,
+      autometteSubmissionId: submission_id,
+    })
+    .returning({ id: enquiries.id });
+
+  /*
+   * After the insert, and unable to fail it.
+   *
+   * Automette retries on a non-2xx, but the retry would hit the duplicate
+   * check above and return early — so a 500 raised by a Loops outage would
+   * lose this lead's mirror for good rather than earning a second attempt.
+   * syncLeadById never throws, and scripts/sync-loops.ts is the real retry.
+   */
+  await syncLeadById(row.id);
 
   return NextResponse.json({ ok: true });
 }

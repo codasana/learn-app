@@ -368,6 +368,23 @@ export const enquiries = pgTable(
      */
     autometteSubmissionId: text("automette_submission_id"),
 
+    /**
+     * What Loops last heard from us, and when.
+     *
+     * This row is the ONLY source of truth for a lead's stage. Loops is a
+     * mirror we push to and never read back from — otherwise two systems own
+     * the same fact and they will disagree on the day it matters.
+     *
+     * The mirror decides which automation a parent is sitting in, so a push
+     * that quietly failed is not cosmetic: it is a family still being chased
+     * for a class they have already had. Recording the stage we actually
+     * pushed, rather than a boolean, is what makes that recoverable —
+     * anything where this differs from `status` is stale by definition and
+     * can be found and re-pushed without guessing. See scripts/sync-loops.ts.
+     */
+    loopsStage: text("loops_stage"),
+    loopsSyncedAt: timestamp("loops_synced_at", { withTimezone: true }),
+
     /** Set on decline; a scheduled job removes the row after this date. */
     purgeAfter: date("purge_after"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
