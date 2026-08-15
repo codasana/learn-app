@@ -610,6 +610,34 @@ export const enrollments = pgTable(
       onDelete: "set null",
     }),
     startDate: date("start_date").notNull(),
+
+    /*
+     * When this child has their classes.
+     *
+     * A recurring slot rather than a booking: the same child at the same time
+     * every week is agreed once, not booked over and over. Cal.com is for the
+     * free first class, where a stranger picks a slot — it is the wrong shape
+     * for ten weekly lessons.
+     *
+     * The time is wall-clock in `slotTimezone`, normally the teacher's, and
+     * the actual instants are generated from it. Pinning it to her zone means
+     * a family in London sees the class shift by an hour when their clocks
+     * change, which is correct: the class did not move, their clocks did.
+     */
+    slotDays: integer("slot_days").array().notNull().default([]),
+    /** "17:00", wall clock in `slotTimezone`. */
+    slotTime: text("slot_time"),
+    slotTimezone: text("slot_timezone").notNull().default("Asia/Kolkata"),
+    durationMin: integer("duration_min").notNull().default(45),
+
+    /**
+     * One stable meeting room for this child, pasted once.
+     *
+     * Not generated per class: that needs a Google or Zoom integration, and
+     * with a handful of families a link that never changes is both simpler and
+     * kinder — the parent can bookmark it.
+     */
+    meetingUrl: text("meeting_url"),
     /** Which unit of the syllabus they are on. See syllabi.unitLabel. */
     currentUnit: integer("current_unit").notNull().default(1),
     status: enrollmentStatus("status").notNull().default("active"),
