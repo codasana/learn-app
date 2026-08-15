@@ -9,10 +9,11 @@ import {
   contentItems,
   enrollments,
   syllabi,
-  syllabusWeeks,
-  syllabusWeekItems,
+  syllabusUnits,
+  syllabusUnitItems,
 } from "@/db/schema";
 import { getCurrentUser } from "@/lib/session";
+import { DEFAULT_UNIT_LABEL, type UnitLabel } from "@/lib/unit-label";
 
 /**
  * Who is learning, and what they are meant to be doing.
@@ -23,7 +24,7 @@ import { getCurrentUser } from "@/lib/session";
  * route can be the only one.
  *
  * Everything a child sees is derived here from their *active enrolment* — not
- * from a URL. A child cannot navigate to another week, another syllabus, or
+ * from a URL. A child cannot navigate to another unit, another syllabus, or
  * another child by editing an address, because none of those are ever asked
  * for.
  */
@@ -38,9 +39,11 @@ export type LearnerContext = {
     id: string;
     syllabusId: string;
     syllabusName: string;
-    currentWeek: number;
-    weekId: string | null;
+    currentUnit: number;
+    unitId: string | null;
     theme: string | null;
+    /** What this syllabus calls its chunks — "Week", "Unit", "Lesson". */
+    label: UnitLabel;
   } | null;
   /** True when a parent is looking rather than the child. */
   viewedByParent: boolean;
@@ -92,7 +95,9 @@ export async function requireLearner(
       id: enrollments.id,
       syllabusId: enrollments.syllabusId,
       syllabusName: syllabi.name,
-      currentWeek: enrollments.currentWeek,
+      currentUnit: enrollments.currentUnit,
+      unitLabel: syllabi.unitLabel,
+      unitLabelPlural: syllabi.unitLabelPlural,
     })
     .from(enrollments)
     .innerJoin(syllabi, eq(syllabi.id, enrollments.syllabusId))
@@ -104,18 +109,18 @@ export async function requireLearner(
     )
     .limit(1);
 
-  let weekId: string | null = null;
+  let unitId: string | null = null;
   let theme: string | null = null;
 
   if (enrolment) {
-    const week = await db.query.syllabusWeeks.findFirst({
+    const unit = await db.query.syllabusUnits.findFirst({
       where: and(
-        eq(syllabusWeeks.syllabusId, enrolment.syllabusId),
-        eq(syllabusWeeks.weekNumber, enrolment.currentWeek),
+        eq(syllabusUnits.syllabusId, enrolment.syllabusId),
+        eq(syllabusUnits.position, enrolment.currentUnit),
       ),
     });
-    weekId = week?.id ?? null;
-    theme = week?.theme || null;
+    unitId = unit?.id ?? null;
+    theme = unit?.theme || null;
   }
 
   return {
@@ -123,20 +128,31 @@ export async function requireLearner(
     firstName: child.firstName,
     avatar: child.avatar,
     ageBand: child.ageBand,
-    enrolment: enrolment ? { ...enrolment, weekId, theme } : null,
+    enrolment: enrolment
+      ? {
+          ...enrolment,
+          unitId,
+          theme,
+          label: {
+            unitLabel: enrolment.unitLabel || DEFAULT_UNIT_LABEL.unitLabel,
+            unitLabelPlural:
+              enrolment.unitLabelPlural || DEFAULT_UNIT_LABEL.unitLabelPlural,
+          },
+        }
+      : null,
     viewedByParent,
   };
 }
 
 /**
- * This week's practice, in the order the teacher put it in.
+ * This unit's practice, in the order the teacher put it in.
  *
- * Only `student` items: a week also holds teacher notes and answer keys, and
+ * Only `student` items: a unit also holds teacher notes and answer keys, and
  * the audience column is what keeps those off a child's screen. Drafts are
  * excluded too — unpublished means unfinished, and a half-written passage is
  * not something to hand a nine-year-old.
  */
-export async function weekPractice(weekId: string) {
+export async function unitPractice(unitId: string) {
   return db
     .select({
       id: contentItems.id,
@@ -144,19 +160,19 @@ export async function weekPractice(weekId: string) {
       type: contentItems.type,
       body: contentItems.body,
       fileUrl: contentItems.fileUrl,
-      sortOrder: syllabusWeekItems.sortOrder,
+      sortOrder: syllabusUnitItems.sortOrder,
     })
-    .from(syllabusWeekItems)
+    .from(syllabusUnitItems)
     .innerJoin(
       contentItems,
-      eq(contentItems.id, syllabusWeekItems.contentItemId),
+      eq(contentItems.id, syllabusUnitItems.contentItemId),
     )
     .where(
       and(
-        eq(syllabusWeekItems.syllabusWeekId, weekId),
+        eq(syllabusUnitItems.syllabusUnitId, unitId),
         eq(contentItems.audience, "student"),
         eq(contentItems.status, "published"),
       ),
     )
-    .orderBy(asc(syllabusWeekItems.sortOrder));
+    .orderBy(asc(syllabusUnitItems.sortOrder));
 }

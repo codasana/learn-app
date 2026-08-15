@@ -14,7 +14,7 @@ import {
 } from "@/lib/leitner";
 
 /**
- * Word Practice — turning a week's word lists into a daily session.
+ * Word Practice — turning a unit's word lists into a daily session.
  *
  * The review format is word → meaning, not word → picture. About a third of
  * Level 1 vocabulary has no sensible picture at all — *together*, *before*,
@@ -24,10 +24,10 @@ import {
  * Wrong answers are drawn from the other words in the same list, at answer
  * time rather than at authoring time. That way they stay correct when the
  * teacher edits the list, and they are plausible by construction: sibling
- * words from one week are exactly the ones a child confuses.
+ * words from one unit are exactly the ones a child confuses.
  */
 
-/** How a word is identified across weeks, syllabuses and levels. */
+/** How a word is identified across units, syllabuses and levels. */
 export function wordKey(word: string): string {
   return word.trim().toLowerCase();
 }
@@ -45,7 +45,7 @@ export type PracticeCard = {
 
 type VocabItem = { id: string; body: unknown };
 
-/** Every word in this week's lists, keyed for lookup. */
+/** Every word in this unit's lists, keyed for lookup. */
 export function wordsFrom(items: VocabItem[]): Map<
   string,
   VocabWord & { sourceItemId: string }
@@ -65,7 +65,7 @@ export function wordsFrom(items: VocabItem[]): Map<
 }
 
 /**
- * Makes sure every word in this week has a card, then returns today's session.
+ * Makes sure every word in this unit has a card, then returns today's session.
  *
  * Cards are created on first sight rather than at enrolment, so a teacher who
  * edits a word list next Tuesday does not leave a child holding rows for words
@@ -169,7 +169,7 @@ function shuffle<T>(items: T[]): T[] {
  *
  * Today's screen needs this before the child has opened Word Practice, and at
  * that point most of their cards do not exist yet — they are created on first
- * sight. Counting only existing cards would tell a child with a fresh week
+ * sight. Counting only existing cards would tell a child with a fresh unit
  * that they have nothing to do, which is the opposite of true.
  */
 export async function dueCount(

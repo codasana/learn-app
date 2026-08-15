@@ -191,8 +191,8 @@ async function main() {
     classSessions,
     contentItems,
     syllabi,
-    syllabusWeeks,
-    syllabusWeekItems,
+    syllabusUnits,
+    syllabusUnitItems,
     users,
   } = await import("../src/db/schema");
 
@@ -407,19 +407,19 @@ async function main() {
     .values({ name: SYLLABUS_NAME, createdBy: owner.id })
     .returning({ id: syllabi.id });
 
-  await db.insert(syllabusWeeks).values(
+  await db.insert(syllabusUnits).values(
     Array.from({ length: WEEKS }, (_, i) => ({
       syllabusId: syllabus.id,
-      weekNumber: i + 1,
+      position: i + 1,
       theme: i === 0 ? "All About Me" : "",
       grammarFocus: i === 0 ? "I am / I have / I like" : null,
     })),
   );
 
-  const week1 = await db.query.syllabusWeeks.findFirst({
+  const week1 = await db.query.syllabusUnits.findFirst({
     where: and(
-      eq(syllabusWeeks.syllabusId, syllabus.id),
-      eq(syllabusWeeks.weekNumber, 1),
+      eq(syllabusUnits.syllabusId, syllabus.id),
+      eq(syllabusUnits.position, 1),
     ),
   });
   if (!week1) throw new Error("week 1 vanished");
@@ -428,13 +428,13 @@ async function main() {
     .insert(classSessions)
     .values([
       {
-        syllabusWeekId: week1.id,
+        syllabusUnitId: week1.id,
         classNumber: 1,
         title: "Meet Meera",
         planMd: CLASS_1_PLAN,
       },
       {
-        syllabusWeekId: week1.id,
+        syllabusUnitId: week1.id,
         classNumber: 2,
         title: "My turn to talk",
         planMd: CLASS_2_PLAN,
@@ -482,10 +482,10 @@ async function main() {
   ]);
 
   // The order the child meets them in between the two classes.
-  await db.insert(syllabusWeekItems).values(
+  await db.insert(syllabusUnitItems).values(
     [vocabId, arjunId, listeningId, builderId, writingId, zaraId, quizId].map(
       (contentItemId, sortOrder) => ({
-        syllabusWeekId: week1.id,
+        syllabusUnitId: week1.id,
         contentItemId,
         sortOrder,
       }),

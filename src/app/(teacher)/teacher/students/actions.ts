@@ -42,9 +42,10 @@ export async function listStudents() {
       parentName: users.name,
       parentEmail: users.email,
       enrollmentId: enrollments.id,
-      currentWeek: enrollments.currentWeek,
+      currentUnit: enrollments.currentUnit,
       enrollmentStatus: enrollments.status,
       syllabusName: syllabi.name,
+      unitLabel: syllabi.unitLabel,
     })
     .from(childProfiles)
     .innerJoin(users, eq(users.id, childProfiles.parentId))
@@ -197,7 +198,7 @@ export async function addChild(
  *
  * Moving a child to a different syllabus completes the old enrolment rather
  * than deleting it — what they did last term is a record, and their vocabulary
- * memory keys on the word rather than the week, so nothing is lost by moving.
+ * memory keys on the word rather than the unit, so nothing is lost by moving.
  */
 export async function enrolChild(
   childId: string,
@@ -238,7 +239,7 @@ export async function enrolChild(
 
 const enrolmentUpdate = z.object({
   status: z.enum(["active", "paused", "completed", "withdrawn"]),
-  currentWeek: z.coerce.number().int().min(1).max(52),
+  currentUnit: z.coerce.number().int().min(1).max(52),
 });
 
 export async function updateEnrolment(
@@ -256,7 +257,7 @@ export async function updateEnrolment(
     .update(enrollments)
     .set({
       status: parsed.data.status,
-      currentWeek: parsed.data.currentWeek,
+      currentUnit: parsed.data.currentUnit,
       completedAt:
         parsed.data.status === "completed" ? new Date() : null,
     })

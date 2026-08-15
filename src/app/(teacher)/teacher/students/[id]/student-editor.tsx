@@ -18,10 +18,12 @@ import {
 type Enrolment = {
   id: string;
   status: "active" | "paused" | "completed" | "withdrawn";
-  currentWeek: number;
+  currentUnit: number;
   startDate: string;
   syllabusId: string;
   syllabusName: string;
+  /** The word this syllabus uses. Never hardcode "Week" in this file. */
+  unitLabel: string;
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -108,6 +110,7 @@ function Enrolment({
   syllabuses: { id: string; name: string }[];
 }) {
   const [chosen, setChosen] = useState(syllabuses[0]?.id ?? "");
+  const word = (active?.unitLabel ?? "Unit").toLowerCase();
 
   async function onEnrol() {
     if (!chosen) return;
@@ -150,17 +153,17 @@ function Enrolment({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
-              label="Which week they're on"
-              htmlFor="currentWeek"
-              hint="Move this on when they finish a week."
+              label={`Which ${word} they're on`}
+              htmlFor="currentUnit"
+              hint={`Move this on when they finish a ${word}.`}
             >
               <Input
-                id="currentWeek"
-                name="currentWeek"
+                id="currentUnit"
+                name="currentUnit"
                 type="number"
                 min={1}
                 max={52}
-                defaultValue={active.currentWeek}
+                defaultValue={active.currentUnit}
               />
             </Field>
             <Field label="How it's going" htmlFor="status">
@@ -207,7 +210,7 @@ function Enrolment({
             </div>
             <p className="mt-2 text-[var(--ink-muted)]">
               The current one is marked finished rather than deleted. Their
-              vocabulary memory keys on the word, not the week, so nothing they
+              vocabulary memory keys on the word, not the unit, so nothing they
               have learned is lost by moving.
             </p>
           </details>

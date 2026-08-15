@@ -39,10 +39,11 @@ export default async function StudentPage({
     .select({
       id: enrollments.id,
       status: enrollments.status,
-      currentWeek: enrollments.currentWeek,
+      currentUnit: enrollments.currentUnit,
       startDate: enrollments.startDate,
       syllabusId: syllabi.id,
       syllabusName: syllabi.name,
+      unitLabel: syllabi.unitLabel,
     })
     .from(enrollments)
     .innerJoin(syllabi, eq(syllabi.id, enrollments.syllabusId))

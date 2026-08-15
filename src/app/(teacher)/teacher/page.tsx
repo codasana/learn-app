@@ -81,7 +81,7 @@ export default async function TeacherHome() {
       <div>
         <h1 className="text-2xl font-semibold">Hello, {firstName}</h1>
         <p className="text-[var(--ink-muted)]">
-          Everything you need for this week is here.
+          Everything you need for this unit is here.
         </p>
       </div>
 
@@ -137,7 +137,7 @@ export default async function TeacherHome() {
         <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--border-strong)] bg-[var(--surface)] px-6 py-8">
           <p className="font-medium">Nothing written yet.</p>
           <p className="mt-1 text-[var(--ink-muted)]">
-            A good first step is a word list — every week needs one, and it takes
+            A good first step is a word list — every unit needs one, and it takes
             a couple of minutes if you already have the words in a document.
           </p>
           <Link

@@ -8,10 +8,11 @@ import {
   classSessionMaterials,
   classSessions,
   syllabi,
-  syllabusWeeks,
-  syllabusWeekItems,
+  syllabusUnits,
+  syllabusUnitItems,
 } from "@/db/schema";
 import { requireTeacher } from "@/lib/session";
+import { unitCount } from "@/lib/unit-label";
 
 import { Board } from "./board";
 
@@ -30,38 +31,38 @@ export default async function SyllabusBoardPage({
   });
   if (!syllabus) notFound();
 
-  const weeks = await db
+  const units = await db
     .select()
-    .from(syllabusWeeks)
-    .where(eq(syllabusWeeks.syllabusId, id))
-    .orderBy(asc(syllabusWeeks.weekNumber));
+    .from(syllabusUnits)
+    .where(eq(syllabusUnits.syllabusId, id))
+    .orderBy(asc(syllabusUnits.position));
 
-  const weekIds = weeks.map((w) => w.id);
+  const unitIds = units.map((w) => w.id);
 
-  // Two grouped counts rather than a count per week — the board is one page and
+  // Two grouped counts rather than a count per unit — the board is one page and
   // should stay one page's worth of queries however long the term gets.
-  const selfStudy = weekIds.length
+  const selfStudy = unitIds.length
     ? await db
-        .select({ weekId: syllabusWeekItems.syllabusWeekId, n: count() })
-        .from(syllabusWeekItems)
-        .where(inArray(syllabusWeekItems.syllabusWeekId, weekIds))
-        .groupBy(syllabusWeekItems.syllabusWeekId)
+        .select({ unitId: syllabusUnitItems.syllabusUnitId, n: count() })
+        .from(syllabusUnitItems)
+        .where(inArray(syllabusUnitItems.syllabusUnitId, unitIds))
+        .groupBy(syllabusUnitItems.syllabusUnitId)
     : [];
 
-  const classMaterials = weekIds.length
+  const classMaterials = unitIds.length
     ? await db
-        .select({ weekId: classSessions.syllabusWeekId, n: count() })
+        .select({ unitId: classSessions.syllabusUnitId, n: count() })
         .from(classSessionMaterials)
         .innerJoin(
           classSessions,
           eq(classSessions.id, classSessionMaterials.classSessionId),
         )
-        .where(inArray(classSessions.syllabusWeekId, weekIds))
-        .groupBy(classSessions.syllabusWeekId)
+        .where(inArray(classSessions.syllabusUnitId, unitIds))
+        .groupBy(classSessions.syllabusUnitId)
     : [];
 
-  const byWeek = (rows: { weekId: string; n: number }[], weekId: string) =>
-    rows.find((r) => r.weekId === weekId)?.n ?? 0;
+  const countFor = (rows: { unitId: string; n: number }[], unitId: string) =>
+    rows.find((r) => r.unitId === unitId)?.n ?? 0;
 
   return (
     <div className="space-y-6">
@@ -74,7 +75,7 @@ export default async function SyllabusBoardPage({
         </Link>
         <h1 className="mt-1 text-2xl font-semibold">{syllabus.name}</h1>
         <p className="text-[var(--ink-muted)]">
-          {weeks.length} week{weeks.length === 1 ? "" : "s"} ·{" "}
+          {unitCount(syllabus, units.length)} ·{" "}
           {syllabus.status === "published" ? "Published" : "Draft"}
         </p>
       </div>
@@ -82,13 +83,17 @@ export default async function SyllabusBoardPage({
       <Board
         syllabusId={syllabus.id}
         status={syllabus.status}
-        weeks={weeks.map((w) => ({
+        label={{
+          unitLabel: syllabus.unitLabel,
+          unitLabelPlural: syllabus.unitLabelPlural,
+        }}
+        units={units.map((w) => ({
           id: w.id,
-          weekNumber: w.weekNumber,
+          position: w.position,
           theme: w.theme,
           grammarFocus: w.grammarFocus,
-          selfStudy: byWeek(selfStudy, w.id),
-          classMaterials: byWeek(classMaterials, w.id),
+          selfStudy: countFor(selfStudy, w.id),
+          classMaterials: countFor(classMaterials, w.id),
         }))}
       />
     </div>

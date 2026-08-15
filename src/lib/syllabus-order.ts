@@ -1,95 +1,95 @@
 /**
- * Week renumbering.
+ * Unit renumbering.
  *
- * Reordering weeks is the operation the whole content model exists to make
- * cheap — a teacher who decides in November that week five belongs at week
- * three should get that in one click, with everything inside the week coming
+ * Reordering units is the operation the whole content model exists to make
+ * cheap — a teacher who decides in November that unit five belongs at unit
+ * three should get that in one click, with everything inside the unit coming
  * along. So this lives apart from the server actions: no auth, no revalidation,
  * nothing but the ordering, which means it can be tested on its own.
  *
  * `(syllabus_id, week_number)` is unique, which is what makes these fiddly —
  * a naive UPDATE collides with itself halfway through. Both functions dodge
- * that by parking rows in numbers no real week can hold: zero, and negatives.
+ * that by parking rows in numbers no real unit can hold: zero, and negatives.
  */
 
 import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { syllabusWeeks } from "@/db/schema";
+import { syllabusUnits } from "@/db/schema";
 
-export type WeekRow = typeof syllabusWeeks.$inferSelect;
+export type UnitRow = typeof syllabusUnits.$inferSelect;
 
-export async function findWeek(weekId: string): Promise<WeekRow | undefined> {
-  return db.query.syllabusWeeks.findFirst({
-    where: eq(syllabusWeeks.id, weekId),
+export async function findUnit(unitId: string): Promise<UnitRow | undefined> {
+  return db.query.syllabusUnits.findFirst({
+    where: eq(syllabusUnits.id, unitId),
   });
 }
 
 /**
- * Swaps a week with the one above or below it. Returns false when there is no
- * neighbour — the week is already at the top or the bottom.
+ * Swaps a unit with the one above or below it. Returns false when there is no
+ * neighbour — the unit is already at the top or the bottom.
  */
-export async function swapWeekWithNeighbour(
-  week: WeekRow,
+export async function swapUnitWithNeighbour(
+  unit: UnitRow,
   direction: "up" | "down",
 ): Promise<boolean> {
-  const targetNumber = week.weekNumber + (direction === "up" ? -1 : 1);
+  const targetNumber = unit.position + (direction === "up" ? -1 : 1);
 
-  const neighbour = await db.query.syllabusWeeks.findFirst({
+  const neighbour = await db.query.syllabusUnits.findFirst({
     where: and(
-      eq(syllabusWeeks.syllabusId, week.syllabusId),
-      eq(syllabusWeeks.weekNumber, targetNumber),
+      eq(syllabusUnits.syllabusId, unit.syllabusId),
+      eq(syllabusUnits.position, targetNumber),
     ),
   });
   if (!neighbour) return false;
 
   await db.transaction(async (tx) => {
-    // Park at 0 so the neighbour can take this week's old number.
+    // Park at 0 so the neighbour can take this unit's old number.
     await tx
-      .update(syllabusWeeks)
-      .set({ weekNumber: 0 })
-      .where(eq(syllabusWeeks.id, week.id));
+      .update(syllabusUnits)
+      .set({ position: 0 })
+      .where(eq(syllabusUnits.id, unit.id));
     await tx
-      .update(syllabusWeeks)
-      .set({ weekNumber: week.weekNumber })
-      .where(eq(syllabusWeeks.id, neighbour.id));
+      .update(syllabusUnits)
+      .set({ position: unit.position })
+      .where(eq(syllabusUnits.id, neighbour.id));
     await tx
-      .update(syllabusWeeks)
-      .set({ weekNumber: targetNumber })
-      .where(eq(syllabusWeeks.id, week.id));
+      .update(syllabusUnits)
+      .set({ position: targetNumber })
+      .where(eq(syllabusUnits.id, unit.id));
   });
 
   return true;
 }
 
 /**
- * Deletes a week and closes the gap, so numbering stays 1..n with no holes.
+ * Deletes a unit and closes the gap, so numbering stays 1..n with no holes.
  *
  * Two passes: everything above the gap goes negative at its new number, then
  * comes back positive. One pass would collide with the rows it has not moved
  * yet.
  */
-export async function deleteWeekAndClose(week: WeekRow): Promise<void> {
+export async function deleteUnitAndClose(unit: UnitRow): Promise<void> {
   await db.transaction(async (tx) => {
-    await tx.delete(syllabusWeeks).where(eq(syllabusWeeks.id, week.id));
+    await tx.delete(syllabusUnits).where(eq(syllabusUnits.id, unit.id));
 
     await tx
-      .update(syllabusWeeks)
-      .set({ weekNumber: sql`-(${syllabusWeeks.weekNumber} - 1)` })
+      .update(syllabusUnits)
+      .set({ position: sql`-(${syllabusUnits.position} - 1)` })
       .where(
         and(
-          eq(syllabusWeeks.syllabusId, week.syllabusId),
-          sql`${syllabusWeeks.weekNumber} > ${week.weekNumber}`,
+          eq(syllabusUnits.syllabusId, unit.syllabusId),
+          sql`${syllabusUnits.position} > ${unit.position}`,
         ),
       );
 
     await tx
-      .update(syllabusWeeks)
-      .set({ weekNumber: sql`-${syllabusWeeks.weekNumber}` })
+      .update(syllabusUnits)
+      .set({ position: sql`-${syllabusUnits.position}` })
       .where(
         and(
-          eq(syllabusWeeks.syllabusId, week.syllabusId),
-          sql`${syllabusWeeks.weekNumber} < 0`,
+          eq(syllabusUnits.syllabusId, unit.syllabusId),
+          sql`${syllabusUnits.position} < 0`,
         ),
       );
   });

@@ -2,11 +2,11 @@
  * English Ladder — database schema
  *
  * Design notes (see V2/02-App-Build-Spec-v2.md §4 and §5):
- *  - Content items are independent and reusable. They belong to no week.
+ *  - Content items are independent and reusable. They belong to no unit.
  *  - A syllabus is an ordered playlist pointing at content items.
  *  - Progress lives on `enrollments` (one child, one syllabus). Class groups
  *    are scheduling only, and optional — a solo student is the normal case.
- *  - Vocabulary card state keys on the WORD, not the week, so moving a child
+ *  - Vocabulary card state keys on the WORD, not the unit, so moving a child
  *    onto a new syllabus never resets their memory.
  */
 
@@ -457,6 +457,22 @@ export const contentItems = pgTable(
 export const syllabi = pgTable("syllabi", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
+
+  /**
+   * What this syllabus calls its chunks.
+   *
+   * The structure is a numbered, ordered unit of teaching — two classes and
+   * some practice. "Week" is only the most common presentation of that, and it
+   * stops being true for an intensive course, a holiday camp, a fortnightly
+   * slot, or simply a child who takes three weeks over one unit. So the
+   * database says `unit` everywhere and the teacher chooses the word her
+   * families read.
+   *
+   * Same rule as `people` in lib/brand: internal names stay boring and stable,
+   * the user-facing word lives in exactly one place.
+   */
+  unitLabel: text("unit_label").notNull().default("Week"),
+  unitLabelPlural: text("unit_label_plural").notNull().default("Weeks"),
   version: integer("version").notNull().default(1),
   status: publishStatus("status").notNull().default("draft"),
   /** A teacher may build their own for specific students; see contentScope. */
@@ -468,49 +484,50 @@ export const syllabi = pgTable("syllabi", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const syllabusWeeks = pgTable(
-  "syllabus_weeks",
+export const syllabusUnits = pgTable(
+  "syllabus_units",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     syllabusId: uuid("syllabus_id")
       .notNull()
       .references(() => syllabi.id, { onDelete: "cascade" }),
-    weekNumber: integer("week_number").notNull(),
+    /** 1..n, dense and gapless. Rendered as "<unitLabel> <position>". */
+    position: integer("position").notNull(),
     theme: text("theme").notNull(),
     grammarFocus: text("grammar_focus"),
   },
-  (t) => [unique("syllabus_week_unique").on(t.syllabusId, t.weekNumber)],
+  (t) => [unique("syllabus_unit_unique").on(t.syllabusId, t.position)],
 );
 
-/** The child's self-study items for a week. */
-export const syllabusWeekItems = pgTable(
-  "syllabus_week_items",
+/** The child's self-study items for a unit. */
+export const syllabusUnitItems = pgTable(
+  "syllabus_unit_items",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    syllabusWeekId: uuid("syllabus_week_id")
+    syllabusUnitId: uuid("syllabus_unit_id")
       .notNull()
-      .references(() => syllabusWeeks.id, { onDelete: "cascade" }),
+      .references(() => syllabusUnits.id, { onDelete: "cascade" }),
     contentItemId: uuid("content_item_id")
       .notNull()
       .references(() => contentItems.id, { onDelete: "restrict" }),
     sortOrder: integer("sort_order").notNull().default(0),
   },
-  (t) => [index("syllabus_week_items_week_idx").on(t.syllabusWeekId)],
+  (t) => [index("syllabus_unit_items_unit_idx").on(t.syllabusUnitId)],
 );
 
-/** Class 1 and Class 2 of a week. */
+/** Class 1 and Class 2 of a unit. */
 export const classSessions = pgTable(
   "class_sessions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    syllabusWeekId: uuid("syllabus_week_id")
+    syllabusUnitId: uuid("syllabus_unit_id")
       .notNull()
-      .references(() => syllabusWeeks.id, { onDelete: "cascade" }),
+      .references(() => syllabusUnits.id, { onDelete: "cascade" }),
     classNumber: integer("class_number").notNull(), // 1 = input, 2 = output
     title: text("title").notNull(),
     planMd: text("plan_md"),
   },
-  (t) => [unique("class_session_unique").on(t.syllabusWeekId, t.classNumber)],
+  (t) => [unique("class_session_unique").on(t.syllabusUnitId, t.classNumber)],
 );
 
 /**
@@ -557,7 +574,7 @@ export const classGroups = pgTable("class_groups", {
 });
 
 /**
- * Progress. One child, one syllabus version, their own week pointer.
+ * Progress. One child, one syllabus version, their own unit pointer.
  * `classGroupId` is nullable — a solo student needs no group.
  */
 export const enrollments = pgTable(
@@ -578,7 +595,8 @@ export const enrollments = pgTable(
       onDelete: "set null",
     }),
     startDate: date("start_date").notNull(),
-    currentWeek: integer("current_week").notNull().default(1),
+    /** Which unit of the syllabus they are on. See syllabi.unitLabel. */
+    currentUnit: integer("current_unit").notNull().default(1),
     status: enrollmentStatus("status").notNull().default("active"),
     completedAt: timestamp("completed_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -589,15 +607,15 @@ export const enrollments = pgTable(
   ],
 );
 
-/** Swap or add a single item for a single child's week. Escape hatch. */
+/** Swap or add a single item for a single child's unit. Escape hatch. */
 export const enrollmentItemOverrides = pgTable("enrollment_item_overrides", {
   id: uuid("id").primaryKey().defaultRandom(),
   enrollmentId: uuid("enrollment_id")
     .notNull()
     .references(() => enrollments.id, { onDelete: "cascade" }),
-  syllabusWeekId: uuid("syllabus_week_id")
+  syllabusUnitId: uuid("syllabus_unit_id")
     .notNull()
-    .references(() => syllabusWeeks.id, { onDelete: "cascade" }),
+    .references(() => syllabusUnits.id, { onDelete: "cascade" }),
   /** Null means a pure addition rather than a replacement. */
   replacesContentItemId: uuid("replaces_content_item_id").references(
     () => contentItems.id,
@@ -624,7 +642,7 @@ export const scheduledClasses = pgTable(
     enrollmentId: uuid("enrollment_id").references(() => enrollments.id, {
       onDelete: "cascade",
     }),
-    syllabusWeekId: uuid("syllabus_week_id").references(() => syllabusWeeks.id, {
+    syllabusUnitId: uuid("syllabus_unit_id").references(() => syllabusUnits.id, {
       onDelete: "set null",
     }),
     classNumber: integer("class_number"), // 1 or 2
@@ -675,7 +693,7 @@ export const rescheduleRequests = pgTable("reschedule_requests", {
 
 /**
  * Leitner box state for one word, for one child.
- * Keys on `wordKey` (the word itself, normalised) rather than a week-scoped id,
+ * Keys on `wordKey` (the word itself, normalised) rather than a unit-scoped id,
  * so a child's memory follows them from one syllabus to the next.
  *
  * Intervals by box: 1 → 1d, 2 → 2d, 3 → 4d, 4 → 8d, 5 → 16d.
@@ -783,7 +801,8 @@ export const parentNotes = pgTable("parent_notes", {
   childId: uuid("child_id")
     .notNull()
     .references(() => childProfiles.id, { onDelete: "cascade" }),
-  weekNumber: integer("week_number").notNull(),
+  /** The unit this note is about. See syllabi.unitLabel. */
+  unitPosition: integer("unit_position").notNull(),
   body: text("body").notNull(),
   /** Which teacher wrote it. */
   authorId: text("author_id").references(() => users.id, {

@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { writingSubmissions } from "@/db/schema";
-import { requireLearner, weekPractice } from "@/lib/child-session";
+import { requireLearner, unitPractice } from "@/lib/child-session";
 import {
   passageBody,
   quizBody,
@@ -25,8 +25,8 @@ export const metadata: Metadata = { title: "Practice" };
 /**
  * One activity.
  *
- * The item is looked up *within the child's current week* rather than by id
- * alone. A child cannot open something from another week, another child's
+ * The item is looked up *within the child's current unit* rather than by id
+ * alone. A child cannot open something from another unit, another child's
  * syllabus, or a teacher-only answer key by changing the address — those items
  * simply are not in the list this resolves against.
  */
@@ -38,9 +38,9 @@ export default async function DoPage({
   const learner = await requireLearner();
   const { id } = await params;
 
-  if (!learner.enrolment?.weekId) notFound();
+  if (!learner.enrolment?.unitId) notFound();
 
-  const items = await weekPractice(learner.enrolment.weekId);
+  const items = await unitPractice(learner.enrolment.unitId);
   const item = items.find((i) => i.id === id);
   if (!item) notFound();
 

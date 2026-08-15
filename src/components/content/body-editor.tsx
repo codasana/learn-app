@@ -123,7 +123,7 @@ export function BodyEditor({
             />
           </Field>
           <Field
-            label="What to mark this week"
+            label="What to mark"
             hint="Keep it to one thing. It guides the feedback draft too."
           >
             <Input

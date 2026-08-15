@@ -7,16 +7,18 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
 
+import { type UnitLabel, unitName } from "@/lib/unit-label";
+
 import {
-  addWeek,
-  deleteWeek,
-  moveWeek,
+  addUnit,
+  deleteUnit,
+  moveUnit,
   setSyllabusStatus,
 } from "../actions";
 
-export type BoardWeek = {
+export type BoardUnit = {
   id: string;
-  weekNumber: number;
+  position: number;
   theme: string;
   grammarFocus: string | null;
   selfStudy: number;
@@ -26,11 +28,14 @@ export type BoardWeek = {
 export function Board({
   syllabusId,
   status,
-  weeks,
+  units,
+  label,
 }: {
   syllabusId: string;
   status: "draft" | "published";
-  weeks: BoardWeek[];
+  units: BoardUnit[];
+  /** What this syllabus calls its chunks. Never hardcode "Week" here. */
+  label: UnitLabel;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -50,16 +55,16 @@ export function Board({
       {message ? <Notice>{message}</Notice> : null}
 
       <ol className="space-y-2">
-        {weeks.map((w, i) => (
+        {units.map((w, i) => (
           <li
             key={w.id}
             className="flex items-center gap-3 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] px-4 py-3"
           >
-            <span className="w-16 shrink-0 text-sm text-[var(--ink-faint)]">
-              Week {w.weekNumber}
+            <span className="w-20 shrink-0 text-sm text-[var(--ink-faint)]">
+              {unitName(label, w.position)}
             </span>
 
-            <Link href={`/teacher/syllabus/${syllabusId}/week/${w.id}`} className="min-w-0 flex-1">
+            <Link href={`/teacher/syllabus/${syllabusId}/unit/${w.id}`} className="min-w-0 flex-1">
               <p className="truncate font-medium">
                 {w.theme || (
                   <span className="text-[var(--ink-faint)] italic">
@@ -78,19 +83,19 @@ export function Board({
                 label="Move up"
                 glyph="↑"
                 disabled={pending || i === 0}
-                onClick={() => run(() => moveWeek(w.id, "up"))}
+                onClick={() => run(() => moveUnit(w.id, "up"))}
               />
               <MoveButton
                 label="Move down"
                 glyph="↓"
-                disabled={pending || i === weeks.length - 1}
-                onClick={() => run(() => moveWeek(w.id, "down"))}
+                disabled={pending || i === units.length - 1}
+                onClick={() => run(() => moveUnit(w.id, "down"))}
               />
-              <RemoveWeek
-                weekNumber={w.weekNumber}
+              <RemoveUnit
+                name={unitName(label, w.position)}
                 empty={w.selfStudy + w.classMaterials === 0}
                 disabled={pending}
-                onConfirm={() => run(() => deleteWeek(w.id))}
+                onConfirm={() => run(() => deleteUnit(w.id))}
               />
             </div>
           </li>
@@ -101,9 +106,9 @@ export function Board({
         <Button
           variant="secondary"
           disabled={pending}
-          onClick={() => run(() => addWeek(syllabusId))}
+          onClick={() => run(() => addUnit(syllabusId))}
         >
-          Add a week
+          Add {label.unitLabel.toLowerCase() === "week" ? "a week" : `a ${label.unitLabel.toLowerCase()}`}
         </Button>
 
         <Button
@@ -156,16 +161,16 @@ function MoveButton({
 }
 
 /**
- * A week with content in it asks twice. An empty one goes on the first click —
+ * A unit with content in it asks twice. An empty one goes on the first click —
  * confirming the removal of nothing is just noise.
  */
-function RemoveWeek({
-  weekNumber,
+function RemoveUnit({
+  name,
   empty,
   disabled,
   onConfirm,
 }: {
-  weekNumber: number;
+  name: string;
   empty: boolean;
   disabled: boolean;
   onConfirm: () => void;
@@ -191,7 +196,7 @@ function RemoveWeek({
   return (
     <button
       type="button"
-      aria-label={`Remove week ${weekNumber}`}
+      aria-label={`Remove ${name}`}
       disabled={disabled}
       onClick={() => setArmed(true)}
       className="rounded-[var(--radius-sm)] px-2 py-1.5 text-sm text-[var(--ink-muted)] hover:bg-[var(--surface-sunken)] hover:text-[var(--ink)] disabled:opacity-30"

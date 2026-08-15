@@ -15,8 +15,8 @@ config({ path: ".env.local" });
 
 async function main() {
   const { db } = await import("../src/db");
-  const { syllabi, syllabusWeeks } = await import("../src/db/schema");
-  const { deleteWeekAndClose, findWeek, reorderList, swapWeekWithNeighbour } =
+  const { syllabi, syllabusUnits } = await import("../src/db/schema");
+  const { deleteUnitAndClose, findUnit, reorderList, swapUnitWithNeighbour } =
     await import("../src/lib/syllabus-order");
 
   let failures = 0;
@@ -34,28 +34,28 @@ async function main() {
     .returning({ id: syllabi.id });
 
   try {
-    await db.insert(syllabusWeeks).values(
+    await db.insert(syllabusUnits).values(
       Array.from({ length: 5 }, (_, i) => ({
         syllabusId: syllabus.id,
-        weekNumber: i + 1,
+        position: i + 1,
         theme: `Theme ${i + 1}`,
       })),
     );
 
     const themes = async () => {
       const rows = await db
-        .select({ theme: syllabusWeeks.theme })
-        .from(syllabusWeeks)
-        .where(eq(syllabusWeeks.syllabusId, syllabus.id))
-        .orderBy(asc(syllabusWeeks.weekNumber));
+        .select({ theme: syllabusUnits.theme })
+        .from(syllabusUnits)
+        .where(eq(syllabusUnits.syllabusId, syllabus.id))
+        .orderBy(asc(syllabusUnits.position));
       return rows.map((r) => r.theme);
     };
     const weekAt = async (n: number) => {
       const rows = await db
         .select()
-        .from(syllabusWeeks)
-        .where(eq(syllabusWeeks.syllabusId, syllabus.id))
-        .orderBy(asc(syllabusWeeks.weekNumber));
+        .from(syllabusUnits)
+        .where(eq(syllabusUnits.syllabusId, syllabus.id))
+        .orderBy(asc(syllabusUnits.position));
       return rows[n - 1];
     };
 
@@ -68,8 +68,8 @@ async function main() {
     ]);
 
     // The move the model exists for: week 5 up to week 3.
-    await swapWeekWithNeighbour((await weekAt(5))!, "up");
-    await swapWeekWithNeighbour((await weekAt(4))!, "up");
+    await swapUnitWithNeighbour((await weekAt(5))!, "up");
+    await swapUnitWithNeighbour((await weekAt(4))!, "up");
     check("week 5 moved up twice, and the theme travelled with it", await themes(), [
       "Theme 1",
       "Theme 2",
@@ -81,7 +81,7 @@ async function main() {
     const top = (await weekAt(1))!;
     check(
       "moving the top week up does nothing",
-      await swapWeekWithNeighbour(top, "up"),
+      await swapUnitWithNeighbour(top, "up"),
       false,
     );
     check("order unchanged after the no-op", await themes(), [
@@ -93,7 +93,7 @@ async function main() {
     ]);
 
     // Delete from the middle; the gap must close.
-    await deleteWeekAndClose((await weekAt(3))!);
+    await deleteUnitAndClose((await weekAt(3))!);
     check("deleting week 3 closes the gap", await themes(), [
       "Theme 1",
       "Theme 2",
@@ -102,10 +102,10 @@ async function main() {
     ]);
 
     const numbers = await db
-      .select({ n: syllabusWeeks.weekNumber })
-      .from(syllabusWeeks)
-      .where(eq(syllabusWeeks.syllabusId, syllabus.id))
-      .orderBy(asc(syllabusWeeks.weekNumber));
+      .select({ n: syllabusUnits.position })
+      .from(syllabusUnits)
+      .where(eq(syllabusUnits.syllabusId, syllabus.id))
+      .orderBy(asc(syllabusUnits.position));
     check(
       "numbering is still 1..n with no holes",
       numbers.map((r) => r.n),
@@ -113,7 +113,7 @@ async function main() {
     );
 
     // Deleting the last week needs no renumbering at all.
-    await deleteWeekAndClose((await weekAt(4))!);
+    await deleteUnitAndClose((await weekAt(4))!);
     check("deleting the last week", await themes(), [
       "Theme 1",
       "Theme 2",
@@ -134,8 +134,8 @@ async function main() {
 
     // A week whose id is gone.
     check(
-      "findWeek on a deleted week",
-      await findWeek("00000000-0000-0000-0000-000000000000"),
+      "findUnit on a deleted week",
+      await findUnit("00000000-0000-0000-0000-000000000000"),
       undefined,
     );
   } finally {

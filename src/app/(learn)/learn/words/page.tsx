@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { requireLearner, weekPractice } from "@/lib/child-session";
+import { requireLearner, unitPractice } from "@/lib/child-session";
 import { todaysSession } from "@/lib/word-practice";
 
 import { WordSession } from "./word-session";
@@ -12,11 +12,11 @@ export const metadata: Metadata = { title: "Words" };
 export default async function WordsPage() {
   const learner = await requireLearner();
 
-  if (!learner.enrolment?.weekId) {
+  if (!learner.enrolment?.unitId) {
     return <Nothing firstName={learner.firstName} />;
   }
 
-  const items = await weekPractice(learner.enrolment.weekId);
+  const items = await unitPractice(learner.enrolment.unitId);
   const vocabItems = items
     .filter((i) => i.type === "vocab_set")
     .map((i) => ({ id: i.id, body: i.body }));

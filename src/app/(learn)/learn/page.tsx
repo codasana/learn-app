@@ -5,9 +5,10 @@ import Link from "next/link";
 import { db } from "@/db";
 import { activityCompletions } from "@/db/schema";
 import { avatarEmoji } from "@/lib/avatars";
-import { requireLearner, weekPractice } from "@/lib/child-session";
+import { requireLearner, unitPractice } from "@/lib/child-session";
 import { CONTENT_TYPES, type ContentTypeKey } from "@/lib/content-types";
 import { isoDate } from "@/lib/leitner";
+import { unitName } from "@/lib/unit-label";
 import { dueCount, wordsKnown } from "@/lib/word-practice";
 
 export const metadata: Metadata = { title: "Today" };
@@ -24,7 +25,7 @@ export default async function TodayPage() {
   const learner = await requireLearner();
   const today = isoDate(new Date());
 
-  if (!learner.enrolment?.weekId) {
+  if (!learner.enrolment?.unitId) {
     return (
       <main className="mx-auto w-full max-w-md px-6 py-16 text-center">
         <p className="text-5xl" aria-hidden="true">
@@ -34,14 +35,14 @@ export default async function TodayPage() {
           Hello, {learner.firstName}
         </h1>
         <p className="mt-3 text-[var(--ink-muted)]">
-          Your teacher hasn&rsquo;t set your first week yet. There will be
+          Your teacher hasn&rsquo;t set your first lessons yet. There will be
           something here as soon as she does.
         </p>
       </main>
     );
   }
 
-  const items = await weekPractice(learner.enrolment.weekId);
+  const items = await unitPractice(learner.enrolment.unitId);
   const vocabItems = items
     .filter((i) => i.type === "vocab_set")
     .map((i) => ({ id: i.id, body: i.body }));
@@ -74,8 +75,8 @@ export default async function TodayPage() {
           <h1 className="text-2xl font-bold">Hello, {learner.firstName}</h1>
           <p className="text-[var(--ink-muted)]">
             {learner.enrolment.theme
-              ? `This week: ${learner.enrolment.theme}`
-              : `Week ${learner.enrolment.currentWeek}`}
+              ? learner.enrolment.theme
+              : unitName(learner.enrolment.label, learner.enrolment.currentUnit)}
           </p>
         </div>
       </header>

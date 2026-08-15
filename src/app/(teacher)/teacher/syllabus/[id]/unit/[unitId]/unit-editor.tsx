@@ -16,14 +16,14 @@ import {
 
 import {
   addClassMaterial,
-  addWeekItem,
+  addUnitItem,
   moveClassMaterial,
-  moveWeekItem,
+  moveUnitItem,
   removeClassMaterial,
-  removeWeekItem,
+  removeUnitItem,
   updateClassMaterial,
   updateClassSession,
-  updateWeek,
+  updateUnit,
 } from "../../../actions";
 
 type Material = {
@@ -54,14 +54,14 @@ type Session = {
   materials: Material[];
 };
 
-export function WeekEditor({
+export function UnitEditor({
   tags,
-  week,
+  unit,
   sessions,
   practice,
 }: {
   tags: string[];
-  week: { id: string; weekNumber: number; theme: string; grammarFocus: string };
+  unit: { id: string; position: number; theme: string; grammarFocus: string };
   sessions: Session[];
   practice: PracticeItem[];
 }) {
@@ -82,7 +82,7 @@ export function WeekEditor({
     <div className="space-y-8">
       {message ? <Notice>{message}</Notice> : null}
 
-      <WeekHeader week={week} pending={pending} run={run} />
+      <UnitHeader unit={unit} pending={pending} run={run} />
 
       {sessions.map((s) => (
         <ClassCard
@@ -95,7 +95,7 @@ export function WeekEditor({
       ))}
 
       <Practice
-        weekId={week.id}
+        unitId={unit.id}
         tags={tags}
         items={practice}
         pending={pending}
@@ -111,24 +111,24 @@ type Run = (
 
 /* ------------------------------------------------------------------ */
 
-function WeekHeader({
-  week,
+function UnitHeader({
+  unit,
   pending,
   run,
 }: {
-  week: { id: string; theme: string; grammarFocus: string };
+  unit: { id: string; theme: string; grammarFocus: string };
   pending: boolean;
   run: Run;
 }) {
-  const [theme, setTheme] = useState(week.theme);
-  const [grammar, setGrammar] = useState(week.grammarFocus);
+  const [theme, setTheme] = useState(unit.theme);
+  const [grammar, setGrammar] = useState(unit.grammarFocus);
 
-  const dirty = theme !== week.theme || grammar !== week.grammarFocus;
+  const dirty = theme !== unit.theme || grammar !== unit.grammarFocus;
 
   return (
     <section className="space-y-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-5">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Theme" htmlFor="theme" hint="What this week is about.">
+        <Field label="Theme" htmlFor="theme" hint="What this unit is about.">
           <Input
             id="theme"
             value={theme}
@@ -139,7 +139,7 @@ function WeekHeader({
         <Field
           label="Grammar focus"
           htmlFor="grammar"
-          hint="Optional. Leave it empty if the week has none."
+          hint="Optional. Leave it empty if the unit has none."
         >
           <Input
             id="grammar"
@@ -155,11 +155,11 @@ function WeekHeader({
           disabled={pending}
           onClick={() =>
             run(() =>
-              updateWeek(week.id, { theme, grammarFocus: grammar }),
+              updateUnit(unit.id, { theme, grammarFocus: grammar }),
             )
           }
         >
-          {pending ? "Saving…" : "Save the week"}
+          {pending ? "Saving…" : "Save the unit"}
         </Button>
       )}
     </section>
@@ -353,13 +353,13 @@ function ClassCard({
 /* ------------------------------------------------------------------ */
 
 function Practice({
-  weekId,
+  unitId,
   tags,
   items,
   pending,
   run,
 }: {
-  weekId: string;
+  unitId: string;
   tags: string[];
   items: PracticeItem[];
   pending: boolean;
@@ -405,9 +405,9 @@ function Practice({
               index={i}
               total={items.length}
               pending={pending}
-              onUp={() => run(() => moveWeekItem(it.id, "up"))}
-              onDown={() => run(() => moveWeekItem(it.id, "down"))}
-              onRemove={() => run(() => removeWeekItem(it.id))}
+              onUp={() => run(() => moveUnitItem(it.id, "up"))}
+              onDown={() => run(() => moveUnitItem(it.id, "down"))}
+              onRemove={() => run(() => removeUnitItem(it.id))}
             />
           </li>
         ))}
@@ -421,7 +421,7 @@ function Practice({
           onCancel={() => setPicking(false)}
           onPick={(contentItemId) => {
             setPicking(false);
-            run(() => addWeekItem(weekId, contentItemId));
+            run(() => addUnitItem(unitId, contentItemId));
           }}
         />
       ) : (
@@ -480,7 +480,7 @@ function RowButtons({
       <button
         type="button"
         aria-label="Take out"
-        title="Take out of this week"
+        title="Take out of this unit"
         className={base}
         disabled={pending}
         onClick={onRemove}

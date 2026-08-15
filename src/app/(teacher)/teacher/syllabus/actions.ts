@@ -19,16 +19,17 @@ import {
   classSessions,
   contentItems,
   syllabi,
-  syllabusWeeks,
-  syllabusWeekItems,
+  syllabusUnits,
+  syllabusUnitItems,
 } from "@/db/schema";
 import { CONTENT_TYPE_KEYS } from "@/lib/content-types";
 import { requireTeacher } from "@/lib/session";
+import { UNIT_LABEL_CHOICES } from "@/lib/unit-label";
 import {
-  deleteWeekAndClose,
-  findWeek,
+  deleteUnitAndClose,
+  findUnit,
   reorderList,
-  swapWeekWithNeighbour,
+  swapUnitWithNeighbour,
 } from "@/lib/syllabus-order";
 
 export type Result = { ok: true } | { ok: false; error: string };
@@ -45,13 +46,14 @@ function touch(syllabusId: string) {
 
 const newSyllabus = z.object({
   name: z.string().trim().min(1, "Give it a name."),
-  weeks: z.coerce.number().int().min(1).max(52),
+  units: z.coerce.number().int().min(1).max(52),
+  unitLabel: z.string().trim().min(1).max(20).default("Week"),
 });
 
 /**
- * Creates the syllabus and its empty weeks in one go. A term is a known length,
- * and starting from twelve blank weeks is far less work than adding them one at
- * a time — weeks can still be added or removed afterwards.
+ * Creates the syllabus and its empty units in one go. A term is a known length,
+ * and starting from twelve blank units is far less work than adding them one at
+ * a time — units can still be added or removed afterwards.
  */
 export async function createSyllabus(
   formData: FormData,
@@ -64,16 +66,26 @@ export async function createSyllabus(
   }
   const v = parsed.data;
 
+  // Unknown words get a plural by the usual rule; the five offered are safe.
+  const label = UNIT_LABEL_CHOICES.find(
+    (c) => c.singular.toLowerCase() === v.unitLabel.toLowerCase(),
+  ) ?? { singular: v.unitLabel, plural: `${v.unitLabel}s` };
+
   const id = await db.transaction(async (tx) => {
     const [row] = await tx
       .insert(syllabi)
-      .values({ name: v.name, createdBy: teacher.id })
+      .values({
+        name: v.name,
+        createdBy: teacher.id,
+        unitLabel: label.singular,
+        unitLabelPlural: label.plural,
+      })
       .returning({ id: syllabi.id });
 
-    await tx.insert(syllabusWeeks).values(
-      Array.from({ length: v.weeks }, (_, i) => ({
+    await tx.insert(syllabusUnits).values(
+      Array.from({ length: v.units }, (_, i) => ({
         syllabusId: row.id,
-        weekNumber: i + 1,
+        position: i + 1,
         theme: "",
       })),
     );
@@ -107,7 +119,7 @@ export async function setSyllabusStatus(
 
 export async function deleteSyllabus(id: string) {
   await requireTeacher();
-  // Weeks, classes and material rows cascade. Enrollments reference the
+  // Units, classes and material rows cascade. Enrollments reference the
   // syllabus with `restrict`, so this fails loudly if a child is on it —
   // which is correct.
   await db.delete(syllabi).where(eq(syllabi.id, id));
@@ -115,91 +127,91 @@ export async function deleteSyllabus(id: string) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Weeks                                                               */
+/* Units                                                               */
 /* ------------------------------------------------------------------ */
 
-export async function updateWeek(
-  weekId: string,
+export async function updateUnit(
+  unitId: string,
   fields: { theme: string; grammarFocus: string },
 ): Promise<Result> {
   await requireTeacher();
-  const week = await db.query.syllabusWeeks.findFirst({
-    where: eq(syllabusWeeks.id, weekId),
+  const unit = await db.query.syllabusUnits.findFirst({
+    where: eq(syllabusUnits.id, unitId),
   });
-  if (!week) return { ok: false, error: "That week no longer exists." };
+  if (!unit) return { ok: false, error: "That unit no longer exists." };
 
   await db
-    .update(syllabusWeeks)
+    .update(syllabusUnits)
     .set({
       theme: fields.theme.trim(),
       grammarFocus: fields.grammarFocus.trim() || null,
     })
-    .where(eq(syllabusWeeks.id, weekId));
+    .where(eq(syllabusUnits.id, unitId));
 
-  touch(week.syllabusId);
+  touch(unit.syllabusId);
   return { ok: true };
 }
 
-export async function addWeek(syllabusId: string): Promise<Result> {
+export async function addUnit(syllabusId: string): Promise<Result> {
   await requireTeacher();
   const [last] = await db
-    .select({ n: syllabusWeeks.weekNumber })
-    .from(syllabusWeeks)
-    .where(eq(syllabusWeeks.syllabusId, syllabusId))
-    .orderBy(desc(syllabusWeeks.weekNumber))
+    .select({ n: syllabusUnits.position })
+    .from(syllabusUnits)
+    .where(eq(syllabusUnits.syllabusId, syllabusId))
+    .orderBy(desc(syllabusUnits.position))
     .limit(1);
 
-  await db.insert(syllabusWeeks).values({
+  await db.insert(syllabusUnits).values({
     syllabusId,
-    weekNumber: (last?.n ?? 0) + 1,
+    position: (last?.n ?? 0) + 1,
     theme: "",
   });
   touch(syllabusId);
   return { ok: true };
 }
 
-/** Removes a week and closes the gap. See lib/syllabus-order. */
-export async function deleteWeek(weekId: string): Promise<Result> {
+/** Removes a unit and closes the gap. See lib/syllabus-order. */
+export async function deleteUnit(unitId: string): Promise<Result> {
   await requireTeacher();
-  const week = await findWeek(weekId);
-  if (!week) return { ok: false, error: "That week no longer exists." };
+  const unit = await findUnit(unitId);
+  if (!unit) return { ok: false, error: "That unit no longer exists." };
 
-  await deleteWeekAndClose(week);
-  touch(week.syllabusId);
+  await deleteUnitAndClose(unit);
+  touch(unit.syllabusId);
   return { ok: true };
 }
 
 /**
- * Swaps a week with its neighbour — the move the whole content model was built
- * for. Nothing inside the week is touched; only its number changes, so classes,
+ * Swaps a unit with its neighbour — the move the whole content model was built
+ * for. Nothing inside the unit is touched; only its number changes, so classes,
  * materials and practice items all travel with it.
  */
-export async function moveWeek(
-  weekId: string,
+export async function moveUnit(
+  unitId: string,
   direction: "up" | "down",
 ): Promise<Result> {
   await requireTeacher();
-  const week = await findWeek(weekId);
-  if (!week) return { ok: false, error: "That week no longer exists." };
+  const unit = await findUnit(unitId);
+  if (!unit) return { ok: false, error: "That unit no longer exists." };
 
-  await swapWeekWithNeighbour(week, direction);
-  touch(week.syllabusId);
+  await swapUnitWithNeighbour(unit, direction);
+  touch(unit.syllabusId);
   return { ok: true };
 }
 
 /* ------------------------------------------------------------------ */
-/* Classes within a week                                               */
+/* Classes within a unit                                               */
 /* ------------------------------------------------------------------ */
 
 /**
- * A week has two live classes. They are created on first view rather than at
+ * A unit has two live classes. They are created on first view rather than at
  * syllabus-creation time, so an existing syllabus picks them up too.
  */
-export async function ensureClassSessions(weekId: string) {
+export async function ensureClassSessions(unitId: string) {
   const existing = await db
     .select({ classNumber: classSessions.classNumber })
     .from(classSessions)
-    .where(eq(classSessions.syllabusWeekId, weekId));
+    .where(eq(classSessions.syllabusUnitId, unitId));
 
   const missing = [1, 2].filter(
     (n) => !existing.some((e) => e.classNumber === n),
@@ -210,7 +222,7 @@ export async function ensureClassSessions(weekId: string) {
     .insert(classSessions)
     .values(
       missing.map((n) => ({
-        syllabusWeekId: weekId,
+        syllabusUnitId: unitId,
         classNumber: n,
         title: n === 1 ? "Class 1" : "Class 2",
       })),
@@ -236,15 +248,15 @@ export async function updateClassSession(
     })
     .where(eq(classSessions.id, sessionId));
 
-  const week = await db.query.syllabusWeeks.findFirst({
-    where: eq(syllabusWeeks.id, session.syllabusWeekId),
+  const unit = await db.query.syllabusUnits.findFirst({
+    where: eq(syllabusUnits.id, session.syllabusUnitId),
   });
-  if (week) touch(week.syllabusId);
+  if (unit) touch(unit.syllabusId);
   return { ok: true };
 }
 
 /* ------------------------------------------------------------------ */
-/* Putting content into a week                                         */
+/* Putting content into a unit                                         */
 /* ------------------------------------------------------------------ */
 
 /** Powers the picker. Published items first — drafts are still offerable. */
@@ -282,7 +294,7 @@ export async function searchLibrary(filters: {
 
 /** New rows go on the end of whichever list they are joining. */
 async function nextSortOrder(
-  table: typeof syllabusWeekItems | typeof classSessionMaterials,
+  table: typeof syllabusUnitItems | typeof classSessionMaterials,
   where: SQL,
 ) {
   const [row] = await db
@@ -292,59 +304,59 @@ async function nextSortOrder(
   return Number(row?.n ?? -1) + 1;
 }
 
-export async function addWeekItem(
-  weekId: string,
+export async function addUnitItem(
+  unitId: string,
   contentItemId: string,
 ): Promise<Result> {
   await requireTeacher();
-  const week = await db.query.syllabusWeeks.findFirst({
-    where: eq(syllabusWeeks.id, weekId),
+  const unit = await db.query.syllabusUnits.findFirst({
+    where: eq(syllabusUnits.id, unitId),
   });
-  if (!week) return { ok: false, error: "That week no longer exists." };
+  if (!unit) return { ok: false, error: "That unit no longer exists." };
 
   const sortOrder = await nextSortOrder(
-    syllabusWeekItems,
-    eq(syllabusWeekItems.syllabusWeekId, weekId),
+    syllabusUnitItems,
+    eq(syllabusUnitItems.syllabusUnitId, unitId),
   );
 
   await db
-    .insert(syllabusWeekItems)
-    .values({ syllabusWeekId: weekId, contentItemId, sortOrder });
+    .insert(syllabusUnitItems)
+    .values({ syllabusUnitId: unitId, contentItemId, sortOrder });
 
-  touch(week.syllabusId);
+  touch(unit.syllabusId);
   return { ok: true };
 }
 
-export async function removeWeekItem(rowId: string): Promise<Result> {
+export async function removeUnitItem(rowId: string): Promise<Result> {
   await requireTeacher();
   const [row] = await db
-    .delete(syllabusWeekItems)
-    .where(eq(syllabusWeekItems.id, rowId))
-    .returning({ weekId: syllabusWeekItems.syllabusWeekId });
+    .delete(syllabusUnitItems)
+    .where(eq(syllabusUnitItems.id, rowId))
+    .returning({ unitId: syllabusUnitItems.syllabusUnitId });
   if (!row) return { ok: true };
 
-  const week = await db.query.syllabusWeeks.findFirst({
-    where: eq(syllabusWeeks.id, row.weekId),
+  const unit = await db.query.syllabusUnits.findFirst({
+    where: eq(syllabusUnits.id, row.unitId),
   });
-  if (week) touch(week.syllabusId);
+  if (unit) touch(unit.syllabusId);
   return { ok: true };
 }
 
-export async function moveWeekItem(
+export async function moveUnitItem(
   rowId: string,
   direction: "up" | "down",
 ): Promise<Result> {
   await requireTeacher();
-  const row = await db.query.syllabusWeekItems.findFirst({
-    where: eq(syllabusWeekItems.id, rowId),
+  const row = await db.query.syllabusUnitItems.findFirst({
+    where: eq(syllabusUnitItems.id, rowId),
   });
   if (!row) return { ok: false, error: "That item is no longer there." };
 
   const siblings = await db
-    .select({ id: syllabusWeekItems.id })
-    .from(syllabusWeekItems)
-    .where(eq(syllabusWeekItems.syllabusWeekId, row.syllabusWeekId))
-    .orderBy(asc(syllabusWeekItems.sortOrder), asc(syllabusWeekItems.id));
+    .select({ id: syllabusUnitItems.id })
+    .from(syllabusUnitItems)
+    .where(eq(syllabusUnitItems.syllabusUnitId, row.syllabusUnitId))
+    .orderBy(asc(syllabusUnitItems.sortOrder), asc(syllabusUnitItems.id));
 
   await reorderList(
     siblings.map((s) => s.id),
@@ -352,16 +364,16 @@ export async function moveWeekItem(
     direction,
     async (id, sortOrder) => {
       await db
-        .update(syllabusWeekItems)
+        .update(syllabusUnitItems)
         .set({ sortOrder })
-        .where(eq(syllabusWeekItems.id, id));
+        .where(eq(syllabusUnitItems.id, id));
     },
   );
 
-  const week = await db.query.syllabusWeeks.findFirst({
-    where: eq(syllabusWeeks.id, row.syllabusWeekId),
+  const unit = await db.query.syllabusUnits.findFirst({
+    where: eq(syllabusUnits.id, row.syllabusUnitId),
   });
-  if (week) touch(week.syllabusId);
+  if (unit) touch(unit.syllabusId);
   return { ok: true };
 }
 
@@ -388,7 +400,7 @@ export async function addClassMaterial(
     .insert(classSessionMaterials)
     .values({ classSessionId: sessionId, contentItemId, sortOrder });
 
-  await touchBySession(session.syllabusWeekId);
+  await touchBySession(session.syllabusUnitId);
   return { ok: true };
 }
 
@@ -413,7 +425,7 @@ export async function updateClassMaterial(
   const session = await db.query.classSessions.findFirst({
     where: eq(classSessions.id, row.sessionId),
   });
-  if (session) await touchBySession(session.syllabusWeekId);
+  if (session) await touchBySession(session.syllabusUnitId);
   return { ok: true };
 }
 
@@ -428,7 +440,7 @@ export async function removeClassMaterial(rowId: string): Promise<Result> {
   const session = await db.query.classSessions.findFirst({
     where: eq(classSessions.id, row.sessionId),
   });
-  if (session) await touchBySession(session.syllabusWeekId);
+  if (session) await touchBySession(session.syllabusUnitId);
   return { ok: true };
 }
 
@@ -463,7 +475,7 @@ export async function moveClassMaterial(
   const session = await db.query.classSessions.findFirst({
     where: eq(classSessions.id, row.classSessionId),
   });
-  if (session) await touchBySession(session.syllabusWeekId);
+  if (session) await touchBySession(session.syllabusUnitId);
   return { ok: true };
 }
 
@@ -471,10 +483,10 @@ export async function moveClassMaterial(
 /* Shared helpers                                                      */
 /* ------------------------------------------------------------------ */
 
-async function touchBySession(weekId: string) {
-  const week = await db.query.syllabusWeeks.findFirst({
-    where: eq(syllabusWeeks.id, weekId),
+async function touchBySession(unitId: string) {
+  const unit = await db.query.syllabusUnits.findFirst({
+    where: eq(syllabusUnits.id, unitId),
   });
-  if (week) touch(week.syllabusId);
+  if (unit) touch(unit.syllabusId);
 }
 

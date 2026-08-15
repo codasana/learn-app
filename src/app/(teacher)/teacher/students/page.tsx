@@ -65,7 +65,7 @@ export default async function StudentsPage() {
                       {s.syllabusName}
                       <span className="text-[var(--ink-faint)]">
                         {" "}
-                        · week {s.currentWeek}
+                        · {s.unitLabel?.toLowerCase() ?? "unit"} {s.currentUnit}
                       </span>
                     </>
                   ) : (

@@ -9,44 +9,45 @@ import {
   classSessions,
   contentItems,
   syllabi,
-  syllabusWeeks,
-  syllabusWeekItems,
+  syllabusUnits,
+  syllabusUnitItems,
 } from "@/db/schema";
 import { requireTeacher } from "@/lib/session";
+import { unitName } from "@/lib/unit-label";
 
 import { allTags } from "../../../../content/actions";
 import { ensureClassSessions } from "../../../actions";
-import { WeekEditor } from "./week-editor";
+import { UnitEditor } from "./unit-editor";
 
-export const metadata: Metadata = { title: "Week" };
+export const metadata: Metadata = { title: "Unit" };
 
 export default async function WeekPage({
   params,
 }: {
-  params: Promise<{ id: string; weekId: string }>;
+  params: Promise<{ id: string; unitId: string }>;
 }) {
   await requireTeacher();
-  const { id, weekId } = await params;
+  const { id, unitId } = await params;
 
-  const week = await db.query.syllabusWeeks.findFirst({
+  const unit = await db.query.syllabusUnits.findFirst({
     where: and(
-      eq(syllabusWeeks.id, weekId),
-      eq(syllabusWeeks.syllabusId, id),
+      eq(syllabusUnits.id, unitId),
+      eq(syllabusUnits.syllabusId, id),
     ),
   });
-  if (!week) notFound();
+  if (!unit) notFound();
 
   const syllabus = await db.query.syllabi.findFirst({
     where: eq(syllabi.id, id),
   });
   if (!syllabus) notFound();
 
-  await ensureClassSessions(week.id);
+  await ensureClassSessions(unit.id);
 
   const sessions = await db
     .select()
     .from(classSessions)
-    .where(eq(classSessions.syllabusWeekId, week.id))
+    .where(eq(classSessions.syllabusUnitId, unit.id))
     .orderBy(asc(classSessions.classNumber));
 
   const materials = await db
@@ -70,25 +71,25 @@ export default async function WeekPage({
       classSessions,
       eq(classSessions.id, classSessionMaterials.classSessionId),
     )
-    .where(eq(classSessions.syllabusWeekId, week.id))
+    .where(eq(classSessions.syllabusUnitId, unit.id))
     .orderBy(asc(classSessionMaterials.sortOrder));
 
   const practice = await db
     .select({
-      id: syllabusWeekItems.id,
+      id: syllabusUnitItems.id,
       contentId: contentItems.id,
       title: contentItems.title,
       type: contentItems.type,
       audience: contentItems.audience,
       status: contentItems.status,
     })
-    .from(syllabusWeekItems)
+    .from(syllabusUnitItems)
     .innerJoin(
       contentItems,
-      eq(contentItems.id, syllabusWeekItems.contentItemId),
+      eq(contentItems.id, syllabusUnitItems.contentItemId),
     )
-    .where(eq(syllabusWeekItems.syllabusWeekId, week.id))
-    .orderBy(asc(syllabusWeekItems.sortOrder));
+    .where(eq(syllabusUnitItems.syllabusUnitId, unit.id))
+    .orderBy(asc(syllabusUnitItems.sortOrder));
 
   const tags = await allTags();
 
@@ -101,16 +102,18 @@ export default async function WeekPage({
         >
           ← {syllabus.name}
         </Link>
-        <h1 className="mt-1 text-2xl font-semibold">Week {week.weekNumber}</h1>
+        <h1 className="mt-1 text-2xl font-semibold">
+          {unitName(syllabus, unit.position)}
+        </h1>
       </div>
 
-      <WeekEditor
+      <UnitEditor
         tags={tags.map((t) => t.tag)}
-        week={{
-          id: week.id,
-          weekNumber: week.weekNumber,
-          theme: week.theme,
-          grammarFocus: week.grammarFocus ?? "",
+        unit={{
+          id: unit.id,
+          position: unit.position,
+          theme: unit.theme,
+          grammarFocus: unit.grammarFocus ?? "",
         }}
         sessions={sessions.map((s) => ({
           id: s.id,

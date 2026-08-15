@@ -6,11 +6,11 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { activityCompletions, writingSubmissions } from "@/db/schema";
-import { requireLearner, weekPractice } from "@/lib/child-session";
+import { requireLearner, unitPractice } from "@/lib/child-session";
 
 /**
  * Everything here re-derives the child from the session and re-checks that the
- * item is in *their* current week.
+ * item is in *their* current unit.
  *
  * A content id is a guessable-ish handle sitting in a URL. Without this check a
  * child could post a completion against any item in the library — including a
@@ -19,9 +19,9 @@ import { requireLearner, weekPractice } from "@/lib/child-session";
  */
 async function requireItemInThisWeek(contentItemId: string) {
   const learner = await requireLearner();
-  if (!learner.enrolment?.weekId) return null;
+  if (!learner.enrolment?.unitId) return null;
 
-  const items = await weekPractice(learner.enrolment.weekId);
+  const items = await unitPractice(learner.enrolment.unitId);
   const item = items.find((i) => i.id === contentItemId);
   if (!item) return null;
 

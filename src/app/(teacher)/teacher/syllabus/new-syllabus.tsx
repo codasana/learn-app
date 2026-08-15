@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Field, Input, Notice } from "@/components/ui/field";
+import { Field, Input, Notice, Select } from "@/components/ui/field";
+import { UNIT_LABEL_CHOICES } from "@/lib/unit-label";
 import { createSyllabus } from "./actions";
 
 export function NewSyllabus({ hasAny }: { hasAny: boolean }) {
@@ -45,7 +46,7 @@ export function NewSyllabus({ hasAny }: { hasAny: boolean }) {
       <div>
         <h2 className="font-medium">Start a new syllabus</h2>
         <p className="text-sm text-[var(--ink-muted)]">
-          The weeks start empty. You can add or remove weeks later, so a rough
+          The units start empty. You can add or remove units later, so a rough
           guess is fine.
         </p>
       </div>
@@ -62,16 +63,32 @@ export function NewSyllabus({ hasAny }: { hasAny: boolean }) {
         />
       </Field>
 
-      <Field label="How many weeks" htmlFor="weeks" hint="A term is twelve.">
-        <Input
-          id="weeks"
-          name="weeks"
-          type="number"
-          min={1}
-          max={52}
-          defaultValue={12}
-        />
-      </Field>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field
+          label="What to call each part"
+          htmlFor="unitLabel"
+          hint="Families see this word everywhere."
+        >
+          <Select id="unitLabel" name="unitLabel" defaultValue="Week">
+            {UNIT_LABEL_CHOICES.map((c) => (
+              <option key={c.singular} value={c.singular}>
+                {c.singular}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <Field label="How many" htmlFor="units" hint="A term is twelve.">
+          <Input
+            id="units"
+            name="units"
+            type="number"
+            min={1}
+            max={52}
+            defaultValue={12}
+          />
+        </Field>
+      </div>
 
       <div className="flex gap-3">
         <Button type="submit" disabled={pending}>

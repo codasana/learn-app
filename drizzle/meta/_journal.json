@@ -64,6 +64,20 @@
       "when": 1786703810480,
       "tag": "0008_organic_wiccan",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786759040167,
+      "tag": "0009_right_wrecker",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786759099945,
+      "tag": "0010_right_william_stryker",
+      "breakpoints": true
     }
   ]
 }
