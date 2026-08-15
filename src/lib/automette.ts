@@ -295,6 +295,34 @@ export async function createForm(input: {
   });
 }
 
+/**
+ * Who gets emailed when someone submits.
+ *
+ * Fields are referenced by the key we chose, not by an internal id — the API
+ * maps it at its own boundary, which is what keeps our keys the only contract
+ * we have to hold.
+ */
+export type FormNotifications = {
+  notifications?: {
+    emails: string[];
+    reply_to_field?: string;
+    include_document_link?: boolean;
+  } | null;
+  respondent_confirmation?: {
+    email_field: string;
+    subject: string;
+    message: string;
+  } | null;
+  sender_name?: string;
+};
+
+export async function updateForm(
+  id: string,
+  patch: FormNotifications & { title?: string; description?: string },
+): Promise<Form> {
+  return call<Form>(`/forms/${id}`, { method: "PATCH", body: patch });
+}
+
 export async function publishForm(id: string): Promise<Form> {
   return call<Form>(`/forms/${id}/publish`, { method: "POST" });
 }

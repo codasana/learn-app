@@ -8,6 +8,8 @@ import {
   verifyWebhook,
 } from "@/lib/automette-webhooks";
 
+import { readAnswers } from "./read-answers";
+
 /**
  * Where "Book a free class" arrives from Automette.
  *
@@ -55,26 +57,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, duplicate: true });
   }
 
-  const str = (key: string): string | null => {
-    const v = answers[key];
-    return typeof v === "string" && v.trim() ? v.trim() : null;
-  };
-
-  const ageBand = str("child_age_band");
+  const a = readAnswers(answers);
 
   await db.insert(enquiries).values({
-    parentName: str("parent_name"),
-    parentEmail: str("parent_email")?.toLowerCase() ?? null,
-    whatsapp: str("whatsapp"),
-    childFirstName: str("child_first_name"),
-    childAgeBand:
-      ageBand === "8_9" || ageBand === "10_11" ? ageBand : null,
-    childGrade: Number.isFinite(Number(str("child_grade")))
-      ? Number(str("child_grade"))
-      : null,
-    timezone: str("timezone") ?? "Asia/Kolkata",
+    parentName: a.parentName,
+    parentEmail: a.parentEmail,
+    whatsapp: a.whatsapp,
+    childFirstName: a.childFirstName,
+    childAgeBand: a.childAgeBand,
+    childGrade: a.childGrade,
+    timezone: a.timezone,
     source: "demo_form",
-    notes: str("message"),
+    notes: a.message,
     autometteSubmissionId: submission_id,
   });
 

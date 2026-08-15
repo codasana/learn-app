@@ -69,10 +69,18 @@ async function main() {
     event: "form.submitted",
     form_id: "cm4frm3xz0001jw04y7c4m1gh",
     submission_id: "cm4sub9rk0001jt04d2h6w8pn",
+    // Copied from a real submission read back through the API. `child_grade`
+    // arrives as a NUMBER, not a string — the kind of thing only real data
+    // tells you, and the receiver silently dropped it until it did.
     answers: {
       parent_name: "Anita Rao",
       parent_email: "anita@example.com",
+      whatsapp: "+971500000000",
+      child_first_name: "Nila",
       child_age_band: "8_9",
+      child_grade: 3,
+      timezone: "Asia/Dubai",
+      message: "Evenings suit us best.",
     },
     submitted_at: "2026-08-15T12:00:00.000Z",
   });
@@ -85,8 +93,51 @@ async function main() {
   check(
     "the flat payload parses",
     parsed?.submission_id === "cm4sub9rk0001jt04d2h6w8pn",
-    parsed ? `answers: ${Object.keys(parsed.answers).join(", ")}` : "did not parse",
+    parsed ? `${Object.keys(parsed.answers).length} answers` : "did not parse",
   );
+  check(
+    "a number answer survives as a number",
+    typeof parsed?.answers.child_grade === "number",
+    `child_grade is ${typeof parsed?.answers.child_grade}`,
+  );
+
+  /* --- the shapes an answer can actually take -------------------- */
+  //
+  // Automette's typing table: number → number or NULL when left empty,
+  // checkbox → boolean, multi_select → array, and a skipped field may be
+  // absent from `answers` altogether. An empty number is not 0 and not "".
+  {
+    const { readAnswers } = await import(
+      "../src/app/api/webhooks/automette-form/read-answers"
+    );
+
+    const sparse = readAnswers({
+      parent_name: "Anita",
+      parent_email: "anita@example.com",
+      child_grade: null,
+      child_age_band: "8_9",
+      // whatsapp, child_first_name, message: absent entirely
+      timezone: "Asia/Dubai",
+    });
+    check("an empty number reads as null, not 0", sparse.childGrade === null,
+      `got ${JSON.stringify(sparse.childGrade)}`);
+    check("an absent field reads as null", sparse.whatsapp === null);
+    check("the fields that are there still read", sparse.parentName === "Anita");
+
+    const typed = readAnswers({
+      child_grade: 4,
+      parent_name: "  Padded  ",
+      // types this form does not use, but which must not crash a parser
+      consent: true,
+      interests: ["reading", "drawing"],
+    });
+    check("a real number reads through", typed.childGrade === 4);
+    check("whitespace is trimmed", typed.parentName === "Padded");
+    check(
+      "a boolean or array answer does not become a string",
+      typed.message === null,
+    );
+  }
 
   /* --- every way of being wrong --------------------------------- */
   check(

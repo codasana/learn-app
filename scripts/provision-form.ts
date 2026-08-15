@@ -103,6 +103,29 @@ const FIELDS = [
   },
 ];
 
+/**
+ * The first email a parent ever gets from this programme.
+ *
+ * It has one job: make the wait feel deliberate rather than like being
+ * ignored. So it says who is reading it, roughly how long, and what happens
+ * next — and it promises nothing it cannot keep. No marketing, no "exciting",
+ * no link to anything.
+ */
+const CONFIRMATION = {
+  email_field: "parent_email",
+  subject: "We have your request",
+  message: [
+    "Thank you for asking.",
+    "",
+    "Sheeba reads every one of these herself, so it may take a day before you",
+    "hear back. When she does, she will suggest a few times that work where",
+    "you are — not where we are.",
+    "",
+    "There is nothing to pay and nothing to prepare. The first class is free,",
+    "and if it turns out we are not the right fit she will say so.",
+  ].join("\n"),
+};
+
 async function main() {
   const a = await import("../src/lib/automette");
   const command = process.argv[2] ?? "status";
@@ -156,6 +179,35 @@ async function main() {
       "Then, once this app is deployed:\n" +
         "  npx tsx scripts/provision-form.ts webhook https://<domain>/api/webhooks/automette-form",
     );
+    process.exit(0);
+  }
+
+  if (command === "notifications") {
+    if (!existing) {
+      console.error(`No form called "${TITLE}". Create it first.`);
+      process.exit(1);
+    }
+    const owner = process.env.TEACHER_EMAIL ?? "msahajwani@gmail.com";
+
+    const updated = await a.updateForm(existing.id, {
+      notifications: {
+        emails: [owner],
+        // So Sheeba can reply straight from her inbox to the parent.
+        reply_to_field: "parent_email",
+      },
+      respondent_confirmation: CONFIRMATION,
+      sender_name: "English Ladder",
+    });
+
+    console.log(`notifications set on ${updated.id}`);
+    console.log(`  owner notified : ${owner}`);
+    console.log(`  reply-to       : the parent's own address`);
+    console.log(`  confirmation   : "${CONFIRMATION.subject}"`);
+    console.log(
+      "\nContent changes edit the draft — publishing again to make it live.",
+    );
+    const published = await a.publishForm(existing.id);
+    console.log(`published version ${published.version}`);
     process.exit(0);
   }
 

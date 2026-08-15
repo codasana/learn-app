@@ -29,7 +29,25 @@ export const metadata: Metadata = {
     "Two live English classes a week for children aged 8 to 11, taught by one teacher who knows your child by name, with about ten minutes of practice a day in between.",
 };
 
+/**
+ * Where the "book a free class" form lives.
+ *
+ * Linked rather than framed. Automette's embed does not report its height to
+ * the host page, so an iframe would need a fixed height and give a phone two
+ * scrollbars — worse than a clean hand-off. Raised with them; not worth a
+ * compromise on the page in the meantime.
+ *
+ * Undefined until the form exists, and every button that points at it simply
+ * does not render. A dead link on the one page a stranger judges you by is
+ * worse than one fewer button.
+ */
+function bookingUrl(): string | null {
+  return process.env.AUTOMETTE_FORM_URL || null;
+}
+
 export default function Home() {
+  const booking = bookingUrl();
+
   return (
     <>
       <SiteHeader />
@@ -39,10 +57,10 @@ export default function Home() {
         <TheIdea />
         <HowItWorks />
         <AWeek />
-        <Teacher />
+        <Teacher booking={booking} />
         <Abroad />
         <Price />
-        <LastWord />
+        <LastWord booking={booking} />
       </main>
       <SiteFooter />
     </>
@@ -236,7 +254,7 @@ function AWeek() {
 
 /* ------------------------------------------------------------------ */
 
-function Teacher() {
+function Teacher({ booking }: { booking: string | null }) {
   return (
     <section className="mx-auto w-full max-w-5xl px-6 pb-16">
       <div className="grid gap-12 lg:grid-cols-[1fr_1.2fr] lg:items-center">
@@ -263,6 +281,18 @@ function Teacher() {
             children at a time. It is the reason this works, and the reason we
             take on very few at once.
           </p>
+
+          {booking && (
+            <div className="mt-6">
+              <Button
+                asChild
+                variant="secondary"
+                className="rounded-[var(--radius-lg)] px-6 py-4"
+              >
+                <a href={booking}>Book a free class with her</a>
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </section>
@@ -335,7 +365,7 @@ function Price() {
 
 /* ------------------------------------------------------------------ */
 
-function LastWord() {
+function LastWord({ booking }: { booking: string | null }) {
   return (
     <section className="mx-auto w-full max-w-5xl px-6 pb-20">
       <div className="rounded-[var(--radius-panel)] bg-[var(--panel-lilac)] px-8 py-14 text-center sm:px-14">
@@ -347,11 +377,27 @@ function LastWord() {
           you did this morning. If it turns out your child is doing fine, we
           will tell you that.
         </p>
-        <div className="mt-8">
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Button asChild className="rounded-[var(--radius-lg)] px-7 py-4">
             <Link href="/check">Start the free check</Link>
           </Button>
+          {booking && (
+            <Button
+              asChild
+              variant="secondary"
+              className="rounded-[var(--radius-lg)] border-0 bg-[var(--surface)] px-6 py-4"
+            >
+              <a href={booking}>Or just book a class</a>
+            </Button>
+          )}
         </div>
+
+        {booking && (
+          <p className="mt-5 text-[var(--ink-muted)]">
+            Some people would rather talk to a person than take a test. That is
+            completely fine — the class is free either way.
+          </p>
+        )}
       </div>
     </section>
   );
