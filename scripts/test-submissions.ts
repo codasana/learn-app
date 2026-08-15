@@ -38,24 +38,6 @@ async function signIn(username: string): Promise<string> {
     .join("; ");
 }
 
-/** Calls a server action the way the browser does. */
-async function action(
-  cookie: string,
-  path: string,
-  actionId: string,
-  args: unknown[],
-): Promise<Response> {
-  return fetch(`${BASE}${path}`, {
-    method: "POST",
-    headers: {
-      cookie,
-      "content-type": "text/plain;charset=UTF-8",
-      "next-action": actionId,
-    },
-    body: JSON.stringify(args),
-  });
-}
-
 async function main() {
   const { db } = await import("../src/db");
   const { contentItems, submissions, childProfiles } = await import(

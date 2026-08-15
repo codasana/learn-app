@@ -20,19 +20,47 @@ import { db, schema } from "@/db";
  * The 4-digit PIN gating the exit from kid mode is NOT an auth concern — it is
  * a UI gate over `users.pinHash` (see src/lib/pin.ts).
  */
+/**
+ * Every origin this app legitimately answers on.
+ *
+ * The origin check is what stops another site driving a signed-in browser
+ * through our auth endpoints, so the list has to be exact — but it also has to
+ * be complete, because an origin missing from it fails as INVALID_ORIGIN,
+ * which reads like broken credentials rather than a configuration problem.
+ * That is a miserable ten minutes to spend, and I have already spent it once.
+ *
+ * In development the port is not ours to choose: Next takes 3001 when
+ * something else already holds 3000.
+ *
+ * In production the hostname is not ours to choose either. Vercel serves the
+ * same build on the production domain, on the project's own <name>.vercel.app,
+ * and on a fresh per-deployment URL every push. Vercel names each of them in
+ * the environment, so they are read rather than guessed — nothing is trusted
+ * that Vercel has not said is ours.
+ */
+function trustedOrigins(): string[] {
+  if (process.env.NODE_ENV === "development") {
+    return [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://localhost:3002",
+    ];
+  }
+
+  const hosts = [
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    process.env.VERCEL_URL,
+    process.env.VERCEL_BRANCH_URL,
+  ].filter((h): h is string => Boolean(h));
+
+  const origins = hosts.map((h) => `https://${h}`);
+  if (process.env.BETTER_AUTH_URL) origins.push(process.env.BETTER_AUTH_URL);
+
+  return [...new Set(origins)];
+}
+
 export const auth = betterAuth({
-  /*
-   * In development the port is not ours to choose — Next takes 3001 when
-   * something else already holds 3000, and Better Auth then rejects every
-   * request as an invalid origin. That failure reads like broken credentials
-   * rather than a port clash, which is a miserable ten minutes to spend.
-   *
-   * Localhost on any port is trusted in development only. In production the
-   * configured URL is the only origin, which is the whole point of the check.
-   */
-  ...(process.env.NODE_ENV === "development"
-    ? { trustedOrigins: ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"] }
-    : {}),
+  trustedOrigins: trustedOrigins(),
 
   database: drizzleAdapter(db, {
     provider: "pg",

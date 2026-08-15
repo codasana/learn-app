@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser, homeFor } from "@/lib/session";
 
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Sign in" };
 
 export default async function LoginPage() {
+  // Already signed in: send them where they belong, not to the marketing
+  // page. Same rule as the login form and the role guards.
   const user = await getCurrentUser();
-  if (user) redirect("/");
+  if (user) redirect(homeFor((user as { role?: string }).role));
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-6 px-6 py-16">
