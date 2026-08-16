@@ -68,15 +68,22 @@ export function checkResultEmail({
   childFirstName,
   token,
   result,
+  bookingUrl: identified,
 }: {
   parentName: string;
   childFirstName: string | null;
   token: string;
   result: CheckResult;
+  /**
+   * The link with this family's enquiry id already on it. Falls back to the
+   * bare event URL, which still books fine — the webhook then has to match on
+   * email instead of reading the id straight off the booking.
+   */
+  bookingUrl?: string | null;
 }): { subject: string; text: string } {
   const who = childFirstName ?? "your child";
   const Who = childFirstName ?? "Your child";
-  const book = bookingUrl();
+  const book = identified ?? bookingUrl();
 
   // Padded so the numbers line up in a monospaced mail client and still read
   // sensibly in a proportional one.

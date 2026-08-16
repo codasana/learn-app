@@ -47,7 +47,35 @@ export type CalBooking = {
   attendeeEmail: string | null;
   attendeeName: string | null;
   attendeeTimezone: string | null;
+  /**
+   * Our own enquiry id, carried out on the booking link and back in the
+   * answers. Present only when they arrived through a link we generated —
+   * which is everyone who came via the check or the confirmation email.
+   */
+  enquiryId: string | null;
 };
+
+/**
+ * Cal.com reports custom booking answers under `responses`, and the shape of
+ * each answer varies: a plain string for some field types, `{ value }` for
+ * others. `metadata` is checked too because that is where a link-level
+ * parameter lands on some event configurations. Reading all three is cheaper
+ * than depending on which one a given Cal.com setup produces.
+ */
+function readEnquiryId(p: {
+  responses?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}): string | null {
+  const candidates = [p.responses?.enquiryId, p.metadata?.enquiryId];
+  for (const c of candidates) {
+    if (typeof c === "string" && c.trim()) return c.trim();
+    if (c && typeof c === "object" && "value" in c) {
+      const v = (c as { value?: unknown }).value;
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+  }
+  return null;
+}
 
 const HANDLED = new Set([
   "BOOKING_CREATED",
@@ -68,6 +96,8 @@ export function parseCalBooking(rawBody: string): CalBooking | null {
           name?: string;
           timeZone?: string;
         }>;
+        responses?: Record<string, unknown>;
+        metadata?: Record<string, unknown>;
       };
     };
 
@@ -93,6 +123,7 @@ export function parseCalBooking(rawBody: string): CalBooking | null {
       attendeeEmail: first?.email?.trim().toLowerCase() ?? null,
       attendeeName: first?.name?.trim() ?? null,
       attendeeTimezone: first?.timeZone?.trim() ?? null,
+      enquiryId: readEnquiryId(p),
     };
   } catch {
     return null;

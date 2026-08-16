@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Field, Input, Notice } from "@/components/ui/field";
-import { brand, teacherName } from "@/lib/brand";
+import { brand, teacherName, TeacherName } from "@/lib/brand";
 
 import { requestReport, submitCheck } from "../actions";
 
@@ -436,6 +436,9 @@ function Result({
   bookingUrl: string | null;
 }) {
   const [sent, setSent] = useState(alreadyKnown);
+  // Null until they submit, or handed down already when this run is one the
+  // teacher issued to a family we already know.
+  const [booking, setBooking] = useState<string | null>(bookingUrl);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -453,6 +456,7 @@ function Result({
       setMessage(res.error);
       return;
     }
+    if (res.bookingUrl) setBooking(res.bookingUrl);
     setSent(true);
   }
 
@@ -547,103 +551,104 @@ function Result({
       </div>
 
       {/*
-        The two asks, in the order they matter.
+        One ask, not two.
 
-        Booking is first and it is the real conversion — it is also the only
-        one of the two that leads anywhere a score cannot: to someone who has
-        actually met the child. The email is the smaller, honest ask beneath
-        it, and it is now a true statement, because what arrives IS what is on
-        this screen.
+        This used to be a Cal.com button with a separate "want this emailed?"
+        form beneath it — two asks doing half a job each, and the button was
+        the wrong one to lead with. A calendar-first link converts the few
+        ready to book this second and loses everyone else without trace,
+        whereas a lead can be followed up.
+
+        So the form IS the booking request. It writes the enquiry, which is
+        already tied to this check run, and hands back a Cal.com link carrying
+        the enquiry id — shown right here, on this page, the moment they
+        submit. Nobody waits for an email to pick a time, and nobody is lost
+        if they never do.
       */}
       <div className="mt-8 rounded-[var(--radius-card)] bg-[var(--panel-mint)] p-6">
-        <h2 className="text-xl font-bold">What happens next</h2>
+        <h2 className="text-xl font-bold">Ask for a free session</h2>
         <p className="mt-2 text-[var(--ink-muted)]">
-          A free session with {teacherName()} — half an hour talking with{" "}
+          Half an hour with {teacherName()} — talking with{" "}
           {who}, getting a proper sense of where they are, and an honest answer
           on whether this is the right thing for them, including when it
           isn&rsquo;t.
         </p>
-        {bookingUrl ? (
-          <>
-            <Button asChild size="lg" className="mt-5">
-              <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
-                Book a session with {teacherName()}
-              </a>
-            </Button>
-            <p className="mt-3 text-sm text-[var(--ink-faint)]">
-              You&rsquo;ll see the times in your own timezone. Nothing to pay
-              and nothing to prepare.
+
+        {sent ? (
+          <div className="mt-5">
+            <p className="font-medium text-[var(--correct)]">
+              Got it — this result is on its way to you by email.
             </p>
-          </>
+            {booking ? (
+              <>
+                <p className="mt-1 text-[var(--ink-muted)]">
+                  You can pick a time now, or leave it and reply to the email.
+                </p>
+                <Button asChild size="lg" className="mt-4">
+                  <a href={booking} target="_blank" rel="noopener noreferrer">
+                    Pick a time
+                  </a>
+                </Button>
+                <p className="mt-3 text-sm text-[var(--ink-faint)]">
+                  You&rsquo;ll see the times in your own timezone. Nothing to
+                  pay and nothing to prepare.
+                </p>
+              </>
+            ) : (
+              <p className="mt-1 text-[var(--ink-muted)]">
+                {TeacherName()} will write to you with a few times that work
+                where you are.
+              </p>
+            )}
+          </div>
         ) : (
-          <p className="mt-3 text-sm text-[var(--ink-faint)]">
-            Leave your email below and {teacherName()} will write to you with a few
-            times that work where you are.
-          </p>
+          <form onSubmit={onSubmit} className="mt-5 space-y-5">
+            <p className="text-sm text-[var(--ink-faint)]">
+              Ask a parent to fill this in. We&rsquo;ll email them this result
+              too, so it&rsquo;s easy to find again.
+            </p>
+
+            {message ? <Notice>{message}</Notice> : null}
+
+            <Field label="Parent's name" htmlFor="parentName">
+              <Input
+                id="parentName"
+                name="parentName"
+                required
+                autoComplete="name"
+              />
+            </Field>
+
+            <Field label="Email" htmlFor="parentEmail">
+              <Input
+                id="parentEmail"
+                name="parentEmail"
+                type="email"
+                required
+                autoComplete="email"
+              />
+            </Field>
+
+            <Field
+              label="WhatsApp"
+              htmlFor="whatsapp"
+              hint="Optional. Only for reminders, never for marketing."
+            >
+              <Input id="whatsapp" name="whatsapp" autoComplete="tel" />
+            </Field>
+
+            <Button type="submit" size="lg" disabled={pending}>
+              {pending ? "Sending…" : "Ask for a free session"}
+            </Button>
+
+            <p className="text-sm text-[var(--ink-faint)]">
+              We keep your details for twelve months so we can tell you when
+              the next term opens, then we delete them. We don&rsquo;t pass
+              them to anyone.
+            </p>
+          </form>
         )}
       </div>
-
-      {sent ? (
-        <div className="mt-6 rounded-[var(--radius-card)] bg-[var(--correct-soft)] p-5">
-          <p className="font-medium text-[var(--correct)]">
-            Sent — it&rsquo;s on its way.
-          </p>
-          <p className="mt-1 text-[var(--ink-muted)]">
-            The email has this result in it, and the link back to this page.
-          </p>
-        </div>
-      ) : (
-        <form onSubmit={onSubmit} className="mt-6 space-y-5">
-          <div>
-            <h2 className="text-lg font-medium">
-              Want this in your inbox?
-            </h2>
-            <p className="mt-1 text-[var(--ink-muted)]">
-              We&rsquo;ll email it over, so it&rsquo;s easy to find again or to
-              show someone at home.
-            </p>
-          </div>
-
-          {message ? <Notice>{message}</Notice> : null}
-
-          <Field label="Parent's name" htmlFor="parentName">
-            <Input
-              id="parentName"
-              name="parentName"
-              required
-              autoComplete="name"
-            />
-          </Field>
-
-          <Field label="Email" htmlFor="parentEmail">
-            <Input
-              id="parentEmail"
-              name="parentEmail"
-              type="email"
-              required
-              autoComplete="email"
-            />
-          </Field>
-
-          <Field
-            label="WhatsApp"
-            htmlFor="whatsapp"
-            hint="Optional. Only for reminders, never for marketing."
-          >
-            <Input id="whatsapp" name="whatsapp" autoComplete="tel" />
-          </Field>
-
-          <Button type="submit" size="lg" variant="secondary" disabled={pending}>
-            {pending ? "Sending…" : "Email me this result"}
-          </Button>
-
-          <p className="text-sm text-[var(--ink-faint)]">
-            We keep your details for twelve months so we can tell you when the
-            next term opens, then we delete them. We don&rsquo;t pass them to
-            anyone.
-          </p>
-        </form>
-      )}
     </main>
   );
 }

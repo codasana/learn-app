@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { enquiries, toolRuns } from "@/db/schema";
+import { bookingUrlFor } from "@/lib/booking";
 import { syncLeadById } from "@/lib/leads";
 import { sendCheckResult, sendEnquiryAlert } from "@/lib/notify";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
@@ -57,8 +58,19 @@ const reportRequest = z.object({
 });
 
 /**
- * The ask, and the only ask: a finished result in exchange for a way to send
- * the full report. Gate the report, not the tool.
+ * The one ask on the result page: a way to reach a parent, in exchange for a
+ * free session.
+ *
+ * This is deliberately NOT a link straight to Cal.com. A calendar-first
+ * button converts the few who are ready to book this second and loses
+ * everyone else without trace — whereas a lead can be followed up. So the
+ * form comes first, the enquiry is written, and the booking link is handed
+ * back for the same page to show immediately afterwards. Nobody has to wait
+ * for an email to pick a time, and nobody is lost if they don't.
+ *
+ * The returned link carries the enquiry id, which is what ties a Cal.com
+ * booking back to this check rather than leaving the webhook guessing by
+ * email address.
  *
  * The run may already belong to a family — the teacher can issue a link to
  * someone who has already enquired — in which case there is nothing to ask
@@ -78,7 +90,19 @@ export async function requestReport(token: string, formData: FormData) {
   if (!run || !run.completedAt) {
     return { ok: false as const, error: "Finish the check first." };
   }
-  if (run.enquiryId) return { ok: true as const };
+  if (run.enquiryId) {
+    const existing = await db.query.enquiries.findFirst({
+      where: eq(enquiries.id, run.enquiryId),
+    });
+    return {
+      ok: true as const,
+      bookingUrl: bookingUrlFor({
+        enquiryId: run.enquiryId,
+        name: existing?.parentName,
+        email: existing?.parentEmail,
+      }),
+    };
+  }
 
   const parsed = reportRequest.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
@@ -110,6 +134,12 @@ export async function requestReport(token: string, formData: FormData) {
    * so nothing below is allowed to fail this action. sendCheckResult and
    * sendEnquiryAlert swallow their own errors for the same reason.
    */
+  const booking = bookingUrlFor({
+    enquiryId: enquiry.id,
+    name: v.parentName,
+    email: v.parentEmail.toLowerCase(),
+  });
+
   const parsedResult = levelCheck.resultSchema.safeParse(run.result);
   if (parsedResult.success) {
     const partial = levelCheck.partialResult(parsedResult.data);
@@ -119,6 +149,7 @@ export async function requestReport(token: string, formData: FormData) {
       childFirstName: run.childFirstName,
       token,
       result: partial,
+      bookingUrl: booking,
     });
     await sendEnquiryAlert({
       enquiryId: enquiry.id,
@@ -132,5 +163,5 @@ export async function requestReport(token: string, formData: FormData) {
 
   await syncLeadById(enquiry.id);
 
-  return { ok: true as const };
+  return { ok: true as const, bookingUrl: booking };
 }

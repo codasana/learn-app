@@ -102,6 +102,24 @@ async function main() {
   check("the attendee email is lower-cased", created?.attendeeEmail === "parent@example.com");
   check("the booking uid is kept", created?.bookingId === "bk_abc123");
   check("the attendee's own timezone is kept", created?.attendeeTimezone === "Asia/Dubai");
+  check("no enquiry id when the link carried none", created?.enquiryId === null);
+
+  const tagged = parseCalBooking(
+    JSON.stringify(booking("BOOKING_CREATED", { responses: { enquiryId: "enq-123" } })),
+  );
+  check("an enquiry id in responses is read", tagged?.enquiryId === "enq-123");
+
+  const wrapped = parseCalBooking(
+    JSON.stringify(
+      booking("BOOKING_CREATED", { responses: { enquiryId: { value: "enq-456" } } }),
+    ),
+  );
+  check("...and when Cal wraps it in {value}", wrapped?.enquiryId === "enq-456");
+
+  const viaMeta = parseCalBooking(
+    JSON.stringify(booking("BOOKING_CREATED", { metadata: { enquiryId: "enq-789" } })),
+  );
+  check("...and when it arrives as metadata", viaMeta?.enquiryId === "enq-789");
 
   check(
     "a cancellation parses",
@@ -123,6 +141,22 @@ async function main() {
   );
   check("a booking with no attendee still parses", noAttendee !== null);
   check("...but carries no email to match on", noAttendee?.attendeeEmail === null);
+
+  console.log("\nBooking links\n");
+
+  const { bookingUrlFor } = await import("../src/lib/booking");
+  process.env.CAL_BOOKING_URL = "https://cal.com/x/free-session";
+
+  const link = bookingUrlFor({ enquiryId: "enq-1", name: "A Parent", email: "P@Example.com" });
+  check("the link carries the enquiry id", link?.includes("enquiryId=enq-1") ?? false, link ?? "null");
+  check("...and prefills the email", link?.includes("email=P%40Example.com") ?? false);
+  check("...and prefills the name", link?.includes("name=A+Parent") ?? false);
+
+  process.env.CAL_BOOKING_URL = "";
+  check("no Cal.com configured means no link", bookingUrlFor({ enquiryId: "enq-1" }) === null);
+
+  process.env.CAL_BOOKING_URL = "javascript:alert(1)";
+  check("a non-https booking URL is refused", bookingUrlFor({ enquiryId: "e" }) === null);
 
   console.log("\nLoops\n");
 

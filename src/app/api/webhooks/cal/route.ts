@@ -34,34 +34,41 @@ export async function POST(req: Request) {
   const booking = parseCalBooking(raw);
   if (!booking) return NextResponse.json({ ok: true, ignored: true });
 
-  if (!booking.attendeeEmail) {
-    // Nothing to match on. Not an error, and retrying will not add an email.
-    return NextResponse.json({ ok: true, unmatched: "no attendee email" });
-  }
-
   /*
-   * Matching a booking to an enquiry, by email.
+   * Matching a booking to an enquiry.
    *
-   * It is the only handle we have: Cal.com is a hosted booking page and the
-   * parent reaches it from a link in an email, carrying nothing of ours.
+   * Two ways, and the order matters.
    *
-   * The awkward case is a parent who enquires twice — took the check in
-   * October, came back in January — leaving two rows on one address. Newest
-   * wins, because a booking made today belongs to the conversation happening
-   * today.
+   * The id is the reliable one. Every booking link we generate carries the
+   * enquiry id, so a parent arriving from the check result or the
+   * confirmation email hands it straight back and there is nothing to infer.
    *
-   * A booking with no matching enquiry is normal, not an error: someone can
-   * be sent the booking link directly, or by another parent. We record
-   * nothing rather than inventing a lead we know nothing about, and Sheeba
-   * still has the booking in Cal.com itself.
+   * Email is the fallback, for anyone who reached the plain booking page —
+   * forwarded by a friend, or found however people find things. It is a
+   * guess: book with a different address and it fails. The awkward case is a
+   * parent who enquired twice, leaving two rows on one address; newest wins,
+   * because a booking made today belongs to today's conversation.
+   *
+   * No match at all is normal rather than an error. We record nothing rather
+   * than invent a lead we know nothing about, and the booking still exists in
+   * Cal.com where Sheeba can see it.
    */
-  const enquiry = await db.query.enquiries.findFirst({
-    where: eq(enquiries.parentEmail, booking.attendeeEmail),
-    orderBy: [desc(enquiries.createdAt)],
-  });
+  const enquiry = booking.enquiryId
+    ? await db.query.enquiries.findFirst({
+        where: eq(enquiries.id, booking.enquiryId),
+      })
+    : booking.attendeeEmail
+      ? await db.query.enquiries.findFirst({
+          where: eq(enquiries.parentEmail, booking.attendeeEmail),
+          orderBy: [desc(enquiries.createdAt)],
+        })
+      : null;
 
   if (!enquiry) {
-    return NextResponse.json({ ok: true, unmatched: "no enquiry" });
+    return NextResponse.json({
+      ok: true,
+      unmatched: booking.enquiryId ? "enquiry gone" : "no match",
+    });
   }
 
   const cancelled = booking.trigger === "BOOKING_CANCELLED";
