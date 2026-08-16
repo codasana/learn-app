@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { enquiries } from "@/db/schema";
 import { appUrl } from "@/lib/booking";
+import { upsertEnquiry } from "@/lib/enquiries";
 import { syncLeadById } from "@/lib/leads";
 import { sendToolLink } from "@/lib/notify";
 import { requireTeacher } from "@/lib/session";
@@ -46,23 +47,26 @@ export async function createEnquiry(
   }
   const v = parsed.data;
 
-  const [row] = await db
-    .insert(enquiries)
-    .values({
-      parentName: v.parentName,
-      parentEmail: v.parentEmail.toLowerCase(),
-      whatsapp: v.whatsapp || null,
-      childFirstName: v.childFirstName || null,
-      childAgeBand: v.childAgeBand ?? null,
-      notes: v.notes || null,
-      source: "demo_form",
-    })
-    .returning({ id: enquiries.id });
+  /*
+   * Merged on email, same as the two automatic routes. If Sheeba types in
+   * someone who already enquired she lands on their existing row, with the
+   * check and her old notes still on it, instead of quietly creating a second
+   * one she will later have to reconcile by hand.
+   */
+  const { id } = await upsertEnquiry({
+    parentName: v.parentName,
+    parentEmail: v.parentEmail,
+    whatsapp: v.whatsapp || null,
+    childFirstName: v.childFirstName || null,
+    childAgeBand: v.childAgeBand ?? null,
+    notes: v.notes || null,
+    source: "demo_form",
+  });
 
-  await syncLeadById(row.id);
+  await syncLeadById(id);
 
   revalidatePath("/teacher/enquiries");
-  return { ok: true, id: row.id };
+  return { ok: true, id };
 }
 
 const update = z.object({

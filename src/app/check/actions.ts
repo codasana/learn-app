@@ -8,6 +8,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { enquiries, toolRuns } from "@/db/schema";
 import { bookingUrlFor } from "@/lib/booking";
+import { upsertEnquiry } from "@/lib/enquiries";
 import { syncLeadById } from "@/lib/leads";
 import { sendCheckResult, sendEnquiryAlert } from "@/lib/notify";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
@@ -97,20 +98,21 @@ export async function requestReport(token: string, formData: FormData) {
   }
   const v = parsed.data;
 
-  const [enquiry] = await db
-    .insert(enquiries)
-    .values({
-      parentName: v.parentName,
-      parentEmail: v.parentEmail.toLowerCase(),
-      whatsapp: v.whatsapp || null,
-      childFirstName: run.childFirstName,
-      childAgeBand: run.childAgeBand,
-      source: "tool",
-      status: "new",
-    })
-    .returning({ id: enquiries.id });
+  /*
+   * Merged on email. This parent may already have filled in /book, in which
+   * case attaching the check to their existing row is the whole point — a
+   * second row would split one family's history in half.
+   */
+  const { id: enquiryId } = await upsertEnquiry({
+    parentName: v.parentName,
+    parentEmail: v.parentEmail,
+    whatsapp: v.whatsapp || null,
+    childFirstName: run.childFirstName,
+    childAgeBand: run.childAgeBand,
+    source: "tool",
+  });
 
-  await attachRunToEnquiry(run.id, enquiry.id);
+  await attachRunToEnquiry(run.id, enquiryId);
 
   /*
    * Saved first, told second, and never the other way round.
@@ -123,7 +125,7 @@ export async function requestReport(token: string, formData: FormData) {
    */
   // Server-side only. This never crosses to the client — see above.
   const booking = bookingUrlFor({
-    enquiryId: enquiry.id,
+    enquiryId,
     name: v.parentName,
     email: v.parentEmail.toLowerCase(),
   });
@@ -140,7 +142,7 @@ export async function requestReport(token: string, formData: FormData) {
       bookingUrl: booking,
     });
     await sendEnquiryAlert({
-      enquiryId: enquiry.id,
+      enquiryId,
       parentName: v.parentName,
       parentEmail: v.parentEmail.toLowerCase(),
       whatsapp: v.whatsapp,
@@ -149,7 +151,7 @@ export async function requestReport(token: string, formData: FormData) {
     });
   }
 
-  await syncLeadById(enquiry.id);
+  await syncLeadById(enquiryId);
 
   return { ok: true as const };
 }
