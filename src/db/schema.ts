@@ -289,10 +289,47 @@ export const childProfiles = pgTable(
     /** One of eight built-in avatars, by key. No photo of the child. */
     avatar: text("avatar").notNull().default("fox"),
     ageBand: ageBand("age_band").notNull().default("8_9"),
+
+    /**
+     * The enquiry this child was converted from, if there was one.
+     *
+     * A deliberate SOFT pointer — a plain uuid with no foreign key — because
+     * the funnel must stay deletable without a migration reaching anything a
+     * child is learning from. That rule is why nothing else crosses this
+     * line, and it survives here: drop every enquiry tomorrow and this column
+     * holds an id that resolves to nothing, which is exactly what an audit
+     * trail of a deleted record should do. Read it expecting a miss.
+     *
+     * It exists because conversion is the single most valuable moment in the
+     * business and it used to lose everything: the check result, the notes
+     * from the free session, and the placement decision all stayed on the
+     * enquiry while a brand new child record started blank beside them.
+     */
+    fromEnquiryId: uuid("from_enquiry_id"),
+
+    /*
+     * Parental consent — who agreed, to what, and when.
+     *
+     * A child's data is processed on the strength of it (DPDP in India,
+     * GDPR-K and UK-GDPR for families abroad), and "it was disclosed on the
+     * form they filled in" is not a record of consent. This is.
+     *
+     * `consentVersion` matters as much as the timestamp: consent is to a
+     * specific privacy notice, notices change, and a bare date cannot say
+     * what was agreed to. `consentNote` records HOW it was obtained, because
+     * today accounts are made by the teacher rather than by the parent, so
+     * consent arrives over WhatsApp or in the session. Recording that plainly
+     * is better than a checkbox that implies more than happened.
+     */
+    consentAt: timestamp("consent_at", { withTimezone: true }),
+    consentVersion: text("consent_version"),
+    consentNote: text("consent_note"),
+
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [
     index("child_profiles_parent_idx").on(t.parentId),
+    index("child_profiles_from_enquiry_idx").on(t.fromEnquiryId),
     unique("child_profiles_user_unique").on(t.userId),
   ],
 );

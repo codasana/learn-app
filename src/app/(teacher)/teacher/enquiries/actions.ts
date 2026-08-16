@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { enquiries, enquiryFamilies } from "@/db/schema";
 import { appUrl } from "@/lib/booking";
 import { enquiryWithFamily, upsertEnquiry } from "@/lib/enquiries";
+import { createFamilyAccounts } from "@/lib/family-accounts";
 import { syncLeadById } from "@/lib/leads";
 import { sendToolLink } from "@/lib/notify";
 import { requireTeacher } from "@/lib/session";
@@ -241,4 +242,91 @@ export async function emailToolLink(
 
   revalidatePath(`/teacher/enquiries/${enquiryId}`);
   return { ok: true, url, sentTo: family.parentEmail };
+}
+
+/* ------------------------------------------------------------------ */
+/* Converting                                                          */
+/* ------------------------------------------------------------------ */
+
+const enrolForm = z.object({
+  childFirstName: z.string().trim().min(1, "The child needs a first name."),
+  childAgeBand: z.enum(["8_9", "10_11", "any"]),
+  avatar: z.string().trim().min(1).default("fox"),
+  consentNote: z.string().trim().optional(),
+});
+
+export type EnrolResult =
+  | { ok: true; childId: string; parentPassword: string | null }
+  | { ok: false; error: string };
+
+/**
+ * Enrol this child, from the enquiry Sheeba is already reading.
+ *
+ * The other direction — go to the students page and type the family in again
+ * — was the only route, and it threw away everything at the moment it was
+ * worth most: the check result, what she saw in the free session, the level
+ * she decided on. All of it stayed on the enquiry while a blank child record
+ * started beside it.
+ *
+ * Adding a family from scratch still exists on the students page, for anyone
+ * who arrived by a route the funnel never saw. This is the common case, not
+ * the only one.
+ */
+export async function enrolFromEnquiry(
+  enquiryId: string,
+  formData: FormData,
+): Promise<EnrolResult> {
+  await requireTeacher();
+
+  const row = await enquiryWithFamily(enquiryId);
+  if (!row) return { ok: false, error: "That enquiry no longer exists." };
+  const { enquiry, family } = row;
+
+  const parsed = enrolForm.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0].message };
+  }
+  const v = parsed.data;
+
+  if (!family.parentName) {
+    return { ok: false, error: "Add the parent's name to this enquiry first." };
+  }
+
+  const res = await createFamilyAccounts({
+    parentEmail: family.parentEmail,
+    parentName: family.parentName,
+    whatsapp: family.whatsapp,
+    timezone: family.timezone,
+    childFirstName: v.childFirstName,
+    childAgeBand: v.childAgeBand,
+    avatar: v.avatar,
+    fromEnquiryId: enquiry.id,
+    consentNote: v.consentNote || null,
+  });
+  if (!res.ok) return res;
+
+  /*
+   * Close the loop.
+   *
+   * Marking the enquiry enrolled here, rather than leaving Sheeba to go back
+   * and tick it, is the difference between a funnel that reports honestly and
+   * one where half the conversions sit at "class done" forever. It is also
+   * what stops Loops chasing a family who has just started paying.
+   */
+  await db
+    .update(enquiries)
+    .set({ status: "enrolled", updatedAt: new Date() })
+    .where(eq(enquiries.id, enquiry.id));
+
+  await syncLeadById(enquiry.id);
+
+  revalidatePath("/teacher/enquiries");
+  revalidatePath(`/teacher/enquiries/${enquiry.id}`);
+  revalidatePath("/teacher/students");
+
+  return {
+    ok: true,
+    childId: res.childId,
+    parentPassword: res.parentPassword,
+  };
 }

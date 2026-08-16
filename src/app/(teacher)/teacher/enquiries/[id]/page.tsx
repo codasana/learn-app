@@ -8,6 +8,7 @@ import { runsForEnquiry } from "@/lib/tool-runs";
 import { levelCheck } from "@/lib/tools";
 
 import { EnquiryEditor } from "./enquiry-editor";
+import { EnrolPanel } from "./enrol-panel";
 
 export const metadata: Metadata = { title: "Enquiry" };
 
@@ -92,6 +93,16 @@ export default async function EnquiryPage({
             ))}
           </ul>
         </div>
+      )}
+
+      {enquiry.status !== "enrolled" && (
+        <EnrolPanel
+          enquiryId={enquiry.id}
+          childFirstName={enquiry.childFirstName}
+          childAgeBand={enquiry.childAgeBand}
+          parentEmail={family.parentEmail}
+          parentName={family.parentName}
+        />
       )}
 
       <EnquiryEditor

@@ -13,7 +13,7 @@ import {
   users,
 } from "@/db/schema";
 import { createChildLogin, resetChildPassword } from "@/lib/child-accounts";
-import { createAccount } from "@/lib/create-account";
+import { createFamilyAccounts } from "@/lib/family-accounts";
 import { readablePassword } from "@/lib/passwords";
 import { requireTeacher } from "@/lib/session";
 
@@ -90,16 +90,12 @@ export type FamilyResult =
   | { ok: false; error: string };
 
 /**
- * Creates the parent account and the child profile together.
+ * Adding a family from scratch — someone who never came through the funnel.
  *
- * There is no public sign-up (spec §13D), so this is the only way a family
- * gets in. If the parent already exists — a second child, or they came through
- * an enquiry — the existing account is reused and no new password is made.
- *
- * The one-time password is returned to be shown on screen ONCE, for the
- * teacher to pass on however she already talks to that family. It is never
- * emailed: a password in an inbox outlives the conversation. A proper
- * set-your-own-password invite link is the right answer and is not built yet.
+ * The usual route is the other way round: Sheeba enrols from the enquiry she
+ * is already reading, which carries the check, her session notes and the
+ * parent's details across with it. See enrolFromEnquiry in the enquiries
+ * actions. This is the manual door for anyone who arrived some other way.
  */
 export async function createFamily(formData: FormData): Promise<FamilyResult> {
   await requireTeacher();
@@ -109,53 +105,24 @@ export async function createFamily(formData: FormData): Promise<FamilyResult> {
     return { ok: false, error: parsed.error.issues[0].message };
   }
   const v = parsed.data;
-  const email = v.parentEmail.toLowerCase();
 
-  let parent = await db.query.users.findFirst({
-    where: eq(users.email, email),
+  const res = await createFamilyAccounts({
+    parentEmail: v.parentEmail,
+    parentName: v.parentName,
+    whatsapp: v.whatsapp,
+    timezone: v.timezone,
+    childFirstName: v.childFirstName,
+    childAgeBand: v.childAgeBand,
+    avatar: v.avatar,
   });
-  let parentPassword: string | null = null;
+  if (!res.ok) return res;
 
-  if (parent) {
-    if (parent.role === "student") {
-      return {
-        ok: false,
-        error: "That email belongs to a student account, not a parent.",
-      };
-    }
-  } else {
-    parentPassword = readablePassword();
-
-    // Deliberately NOT signUpEmail: that would hand the teacher this parent's
-    // session and sign her out of her own. See lib/create-account.
-    const created = await createAccount({
-      email,
-      name: v.parentName,
-      password: parentPassword,
-      role: "parent",
-      timezone: v.timezone,
-      whatsapp: v.whatsapp || null,
-    });
-
-    parent = await db.query.users.findFirst({
-      where: eq(users.id, created.id),
-    });
-  }
-
-  if (!parent) return { ok: false, error: "Could not create that account." };
-
-  const [child] = await db
-    .insert(childProfiles)
-    .values({
-      parentId: parent.id,
-      firstName: v.childFirstName,
-      ageBand: v.childAgeBand,
-      avatar: v.avatar,
-    })
-    .returning({ id: childProfiles.id });
-
-  touch(child.id);
-  return { ok: true, childId: child.id, parentPassword };
+  touch(res.childId);
+  return {
+    ok: true,
+    childId: res.childId,
+    parentPassword: res.parentPassword,
+  };
 }
 
 /** A sibling on an existing parent account. */
