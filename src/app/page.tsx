@@ -133,18 +133,68 @@ function Promises() {
 
 /* ------------------------------------------------------------------ */
 
+const FOUR = [
+  [
+    "Reading",
+    "Finishing a book because they wanted to — and being able to say what it was about.",
+    "var(--panel-butter)",
+  ],
+  [
+    "Writing",
+    "Something worth reading, marked by a person who explains what to change and why.",
+    "var(--panel-mint)",
+  ],
+  [
+    "Speaking",
+    "Answering without rehearsing first, and not going quiet when a grown-up joins in.",
+    "var(--panel-lilac)",
+  ],
+  [
+    "Listening",
+    "Following what was said the first time, including the part nobody repeated.",
+    "var(--panel-peach)",
+  ],
+] as const;
+
+/**
+ * The four skills — and why school is no longer mentioned here.
+ *
+ * This section used to open "Skills, not syllabus", followed by "school
+ * teaches English as a subject to be examined". Both true, and both a
+ * mistake: it made school the opponent, which asks a parent to defend the
+ * school they chose rather than consider us. The one company that has made
+ * skills-first English profitable at this age group never mentions school at
+ * all — it sells visible things a child can do, and leaves school alone.
+ *
+ * So the claim is additive now, and built on the four words a parent already
+ * knows from the report card. Each promise is deliberately something you
+ * could notice at the dinner table, not something that needs a score to see.
+ */
 function TheIdea() {
   return (
     <section className="mx-auto w-full max-w-5xl px-6 pb-16">
-      <div className="rounded-[var(--radius-panel)] bg-[var(--surface)] px-8 py-14 text-center sm:px-14">
-        <p className="text-3xl leading-snug font-bold text-balance sm:text-4xl">
-          Skills, not syllabus.
+      <div className="rounded-[var(--radius-panel)] bg-[var(--surface)] px-8 py-14 sm:px-14">
+        <p className="text-center text-3xl leading-snug font-bold text-balance sm:text-4xl">
+          Four skills, and all four get taught.
         </p>
-        <p className="mx-auto mt-5 max-w-2xl text-lg text-[var(--ink-muted)]">
-          School teaches English as a subject to be examined. We teach it as a
-          thing your child does — speaking without rehearsing first, writing
-          something worth reading, and finishing a book because they wanted to.
+        <p className="mx-auto mt-5 max-w-2xl text-center text-lg text-[var(--ink-muted)]">
+          Reading, writing, speaking and listening. Most children are strong at
+          two and quietly avoid the other two — and the two they avoid are
+          usually the ones nobody has time to sit with them on.
         </p>
+
+        <div className="mx-auto mt-10 grid max-w-3xl gap-4 sm:grid-cols-2">
+          {FOUR.map(([skill, promise, bg]) => (
+            <div
+              key={skill}
+              className="rounded-[var(--radius-card)] px-6 py-7"
+              style={{ background: bg }}
+            >
+              <h3 className="text-xl font-bold">{skill}</h3>
+              <p className="mt-2 text-[var(--ink-muted)]">{promise}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -304,14 +354,23 @@ function Abroad() {
   return (
     <section className="mx-auto w-full max-w-5xl px-6 pb-16">
       <div className="rounded-[var(--radius-panel)] bg-[var(--panel-butter)] px-8 py-12 sm:px-14">
+        {/*
+          What we can do, not who is already here.
+
+          This said "plenty of these children are in Dubai, Singapore and
+          further out", which is a claim about a student body that does not
+          exist yet. Targeting is a job for the ads; the page only has to
+          answer the question a parent outside India is actually asking, which
+          is "will the times work for us".
+        */}
         <h2 className="text-2xl font-bold sm:text-3xl">
           If you&rsquo;re not in India
         </h2>
         <p className="mt-4 max-w-2xl text-lg text-[var(--ink-muted)]">
-          Plenty of these children are in Dubai, Singapore and further out. You
-          pick class times in your own timezone, and everything you are sent —
-          the schedule, the reminders, the reports — is in your time, not ours.
-          If a class clashes with something, you move it from your phone.
+          Classes are in the evening, and you pick times in your own timezone.
+          Everything you are sent — the schedule, the reminders, the notes
+          after a class — is in your time, not ours. If a class clashes with
+          something, you move it from your phone.
         </p>
       </div>
     </section>

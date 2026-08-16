@@ -516,8 +516,11 @@ function Result({
       </div>
 
       <p className="mt-4 text-[var(--ink-muted)]">
-        This is a rough picture, not a verdict — seventeen questions can only
-        say so much. What it&rsquo;s good for is telling {teacherName()} where to begin.
+        This is a rough picture, not a verdict. It covers reading, listening
+        and words — the parts a computer can mark. It says nothing about the
+        other two: <strong className="text-[var(--ink)]">speaking</strong> and{" "}
+        <strong className="text-[var(--ink)]">writing</strong> need a person,
+        which is what the half hour below is for.
       </p>
 
       {/*

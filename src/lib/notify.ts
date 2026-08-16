@@ -110,9 +110,10 @@ ${breakdown}
 
 Strongest area: ${result.strongest}.
 
-That is a rough picture rather than a verdict — seventeen questions can only
-say so much, and none of it involves anyone having met ${who}. What it is good
-for is telling ${teacherName()} where to begin.
+That is a rough picture rather than a verdict. It covers reading, listening
+and words — the parts a computer can mark. It says nothing about the other
+two: speaking and writing need a person, which is what the free session is
+for.
 
 ${next}
 
