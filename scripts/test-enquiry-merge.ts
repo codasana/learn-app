@@ -1,10 +1,11 @@
 /**
- * One family, one row — across all three ways in.
+ * One family per email, one row per child.
  *
- * The scenario that motivated this: a parent gives their email on the check
- * result, does not book, then comes back a week later and fills in /book.
- * Two inserts make that two families, and the check ends up attached to the
- * one nobody advances.
+ * Two scenarios drove the split. A parent gives their email on the check
+ * result, does not book, then comes back a week later and fills in /book —
+ * blind inserts make that two families. And that same parent enquires about
+ * a second child — which a family-shaped row with the child embedded cannot
+ * represent at all.
  *
  * Runs against the real database and cleans up after itself.
  */
@@ -33,83 +34,133 @@ const EMAIL = `merge-test-${Date.now()}@example.invalid`;
 async function main() {
   const { eq } = await import("drizzle-orm");
   const { db } = await import("../src/db");
-  const { enquiries } = await import("../src/db/schema");
-  const { upsertEnquiry } = await import("../src/lib/enquiries");
+  const { enquiries, enquiryFamilies } = await import("../src/db/schema");
+  const { upsertEnquiry, siblingsOf } = await import("../src/lib/enquiries");
+  const { familyStage, stageFor } = await import("../src/lib/leads");
 
-  const count = async () =>
-    (await db.select().from(enquiries).where(eq(enquiries.parentEmail, EMAIL))).length;
-  const row = async () =>
-    db.query.enquiries.findFirst({ where: eq(enquiries.parentEmail, EMAIL) });
+  const family = async () =>
+    db.query.enquiryFamilies.findFirst({
+      where: eq(enquiryFamilies.parentEmail, EMAIL),
+    });
+  const kids = async (familyId: string) =>
+    db.select().from(enquiries).where(eq(enquiries.familyId, familyId));
 
-  console.log("\nOne family, one row\n");
+  console.log("\nOne family per email\n");
 
-  // 1. the check: we have an email and a child's first name, nothing else
+  // 1. the check: an email, a child's first name, nothing else
   const a = await upsertEnquiry({
     parentEmail: EMAIL.toUpperCase(), // also proves case folding
     parentName: "A Parent",
     childFirstName: "Nila",
     source: "tool",
   });
-  check("the check creates the row", !a.merged);
-  check("the address is folded to lower case", (await count()) === 1);
+  check("the check creates a family", Boolean(await family()));
+  check("...and one child", (await kids(a.familyId)).length === 1);
+  check("the address is folded to lower case", (await family())?.parentEmail === EMAIL);
 
-  // 2. a week later, the same parent fills in /book with more detail
+  // 2. a week later, the same parent fills in /book about the same child
   const b = await upsertEnquiry({
     parentEmail: EMAIL,
     parentName: "A Parent",
     whatsapp: "+971 50 000 0000",
+    childFirstName: "nila ", // scruffier typing, same child
     childGrade: 4,
     timezone: "Asia/Dubai",
     notes: "Would like evenings.",
     source: "demo_form",
     autometteSubmissionId: `sub-${Date.now()}`,
   });
-  check("the form merges instead of inserting", b.merged);
-  check("...into the same row", b.id === a.id);
-  check("still one family", (await count()) === 1);
+  check("a scruffier spelling still finds the same child", b.merged && b.id === a.id);
+  check("no second family", b.familyId === a.familyId);
+  check("still one child", (await kids(a.familyId)).length === 1);
 
-  const merged = await row();
-  check("the child's name from the check survives", merged?.childFirstName === "Nila");
-  check("the new WhatsApp number is filled in", merged?.whatsapp === "+971 50 000 0000");
-  check("the timezone they told us is taken", merged?.timezone === "Asia/Dubai");
-  check("the submission id is recorded", Boolean(merged?.autometteSubmissionId));
+  const f2 = await family();
+  check("the parent's number lands on the family", f2?.whatsapp === "+971 50 000 0000");
+  check("the timezone they told us is taken", f2?.timezone === "Asia/Dubai");
 
-  // 3. later information must not clobber what is already there
+  const first = (await kids(a.familyId))[0];
+  check("the grade lands on the child", first.childGrade === 4);
+  check("the submission id is recorded", Boolean(first.autometteSubmissionId));
+
+  console.log("\nOne row per child\n");
+
+  // 3. the same parent, a different child
+  const sib = await upsertEnquiry({
+    parentEmail: EMAIL,
+    childFirstName: "Arjun",
+    childAgeBand: "8_9",
+    source: "demo_form",
+  });
+  check("a sibling gets their own row", !sib.merged && sib.id !== a.id);
+  check("...in the same family", sib.familyId === a.familyId);
+  check("two children now", (await kids(a.familyId)).length === 2);
+
+  const others = await siblingsOf(a.id, a.familyId);
+  check(
+    "the teacher's screen can see the sibling",
+    others.length === 1 && others[0].childFirstName === "Arjun",
+  );
+
+  // 4. the two move independently — the thing the old shape could not do
+  await db.update(enquiries).set({ status: "enrolled" }).where(eq(enquiries.id, a.id));
+  const both = await kids(a.familyId);
+  check(
+    "one child enrolled while the other is still new",
+    both.filter((k) => k.status === "enrolled").length === 1 &&
+      both.filter((k) => k.status === "new").length === 1,
+  );
+  check(
+    "the family's Loops stage takes the furthest along",
+    stageFor(familyStage(both.map((k) => k.status))) === "customer",
+  );
+
+  // 5. later information never overwrites what is already there
   await upsertEnquiry({
     parentEmail: EMAIL,
     parentName: "Someone Else",
-    childFirstName: "Wrong Child",
+    childFirstName: "Arjun",
     notes: "Second note.",
     source: "demo_form",
   });
-  const after = await row();
-  check("a later name does not overwrite the first", after?.parentName === "A Parent");
-  check("a later child name does not overwrite either", after?.childFirstName === "Nila");
-  check("both notes are kept", (after?.notes ?? "").includes("Would like evenings.")
-    && (after?.notes ?? "").includes("Second note."));
+  check(
+    "a later parent name does not overwrite the first",
+    (await family())?.parentName === "A Parent",
+  );
+  const arjun = (await kids(a.familyId)).find((k) => k.childFirstName === "Arjun");
+  check("both notes are kept", (arjun?.notes ?? "").includes("Second note."));
 
-  // 4. declining, then coming back
-  await db.update(enquiries)
-    .set({ status: "declined", purgeAfter: "2027-01-01" })
-    .where(eq(enquiries.id, a.id));
-  await upsertEnquiry({ parentEmail: EMAIL, source: "demo_form" });
-  const reopened = await row();
-  check("a declined family coming back re-opens the row", reopened?.status === "new");
-  check("...and the deletion clock is cleared", reopened?.purgeAfter === null);
-  check("...without creating a second row", (await count()) === 1);
+  // 6. declining, then coming back
+  await db.update(enquiries).set({ status: "declined" }).where(eq(enquiries.id, arjun!.id));
+  await db
+    .update(enquiryFamilies)
+    .set({ purgeAfter: "2027-01-01" })
+    .where(eq(enquiryFamilies.id, a.familyId));
 
-  // 5. an enrolled family enquiring again is a sibling, not a duplicate
-  await db.update(enquiries).set({ status: "enrolled" }).where(eq(enquiries.id, a.id));
-  const sibling = await upsertEnquiry({
+  await upsertEnquiry({ parentEmail: EMAIL, childFirstName: "Arjun", source: "demo_form" });
+  const back = (await kids(a.familyId)).find((k) => k.childFirstName === "Arjun");
+  check("a declined child coming back re-opens their row", back?.status === "new");
+  check(
+    "...and the family's deletion clock is cleared",
+    (await family())?.purgeAfter === null,
+  );
+  check("...without creating a third row", (await kids(a.familyId)).length === 2);
+
+  // 7. an enrolled child enquired about again is next term, not a correction
+  const again = await upsertEnquiry({
     parentEmail: EMAIL,
-    childFirstName: "Younger Sibling",
+    childFirstName: "Nila",
     source: "demo_form",
   });
-  check("an enrolled family gets a NEW row for a sibling", !sibling.merged);
-  check("...so there are two", (await count()) === 2);
+  check("an enrolled child gets a fresh row", !again.merged);
+  check("...so three rows, still one family", (await kids(a.familyId)).length === 3);
 
-  await db.delete(enquiries).where(eq(enquiries.parentEmail, EMAIL));
-  check("cleaned up", (await count()) === 0);
+  // 8. the family owns its children
+  await db.delete(enquiryFamilies).where(eq(enquiryFamilies.id, a.familyId));
+  check(
+    "deleting the family cascades to every child",
+    (await kids(a.familyId)).length === 0,
+  );
+  check("cleaned up", !(await family()));
 
   console.log(`\n${passed} passed, ${failed} failed\n`);
   process.exit(failed === 0 ? 0 : 1);

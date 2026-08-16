@@ -189,7 +189,10 @@ async function main() {
     await db.delete(s.childProfiles).where(eq(s.childProfiles.parentId, p.id));
     await db.delete(s.users).where(eq(s.users.id, p.id));
   }
-  await db.delete(s.enquiries).where(like(s.enquiries.parentEmail, `%${DEMO}`));
+  // Enquiries cascade from the family, so removing the family is enough.
+  await db
+    .delete(s.enquiryFamilies)
+    .where(like(s.enquiryFamilies.parentEmail, `%${DEMO}`));
 
   if (reset) {
     console.log("demo data removed");
@@ -419,19 +422,59 @@ async function main() {
   }
 
   /* --- one family still deciding --------------------------------- */
+  const [deciding] = await db
+    .insert(s.enquiryFamilies)
+    .values({
+      parentName: "Deepa Nair",
+      parentEmail: `deepa${DEMO}`,
+      whatsapp: "+971 50 777 7777",
+      timezone: "Asia/Dubai",
+    })
+    .returning({ id: s.enquiryFamilies.id });
+
   await db.insert(s.enquiries).values({
-    parentName: "Deepa Nair",
-    parentEmail: `deepa${DEMO}`,
-    whatsapp: "+971 50 777 7777",
+    familyId: deciding.id,
     childFirstName: "Aarav",
     childAgeBand: "8_9",
     childGrade: 3,
-    timezone: "Asia/Dubai",
     source: "tool",
     status: "class_scheduled",
     suggestedLevel: 2,
-    notes: "Took the check, scored 11/17. Free class booked for Thursday.",
+    notes: "Took the check, scored 11/17. Free session booked for Thursday.",
   });
+
+  /* --- and one with two children, at different stages ------------- */
+  const [twoKids] = await db
+    .insert(s.enquiryFamilies)
+    .values({
+      parentName: "Ravi Menon",
+      parentEmail: `ravi${DEMO}`,
+      whatsapp: "+91 98450 00000",
+      timezone: "Asia/Kolkata",
+    })
+    .returning({ id: s.enquiryFamilies.id });
+
+  await db.insert(s.enquiries).values([
+    {
+      familyId: twoKids.id,
+      childFirstName: "Ananya",
+      childAgeBand: "10_11",
+      childGrade: 5,
+      source: "demo_form",
+      status: "class_done",
+      suggestedLevel: 3,
+      teacherNotes: "Reads well, very quiet when asked to speak.",
+    },
+    {
+      familyId: twoKids.id,
+      childFirstName: "Vihaan",
+      childAgeBand: "8_9",
+      childGrade: 3,
+      source: "demo_form",
+      status: "new",
+      notes: "Younger brother — asked about him after Ananya's session.",
+    },
+  ]);
 
   console.log("\nDemo term seeded.\n");
   console.log("Everyone's password is:", PASSWORD, "\n");

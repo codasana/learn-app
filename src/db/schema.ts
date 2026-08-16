@@ -322,24 +322,96 @@ export const childProfiles = pgTable(
  * Declined enquiries are kept as the re-marketing list for the next term, with
  * `purgeAfter` set 12 months out. That retention is disclosed on the form.
  */
+/**
+ * A family who has shown interest but has not enrolled.
+ *
+ * Keyed on the parent's email, which is the only identifier in this part of
+ * the system worth trusting: we control every place it is collected, and we
+ * send to it. A child's first name is NOT a key — it is free text a stranger
+ * types, and "Nila", "Neela" and "Nila S" are three keys for one child.
+ *
+ * Parent details live here and nowhere else. They used to sit on each
+ * enquiry, which meant a family with two children held two copies of one
+ * phone number, and which row Sheeba opened decided what she dialled.
+ *
+ * Loops state lives here too, and this is where it belongs: a Loops contact
+ * is keyed on email, so it maps to a family, never to one child.
+ */
+export const enquiryFamilies = pgTable(
+  "enquiry_families",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+
+    /** Lower-cased on the way in. The identity of the whole row. */
+    parentEmail: text("parent_email").notNull(),
+    parentName: text("parent_name"),
+    whatsapp: text("whatsapp"),
+    timezone: text("timezone").notNull().default("Asia/Kolkata"),
+
+    /**
+     * What Loops last heard from us, and when.
+     *
+     * This row is the ONLY source of truth for a lead's stage. Loops is a
+     * mirror we push to and never read back from — otherwise two systems own
+     * the same fact and they will disagree on the day it matters.
+     *
+     * The mirror decides which automation a parent is sitting in, so a push
+     * that quietly failed is not cosmetic: it is a family still being chased
+     * for a class they have already had. Recording the stage we actually
+     * pushed, rather than a boolean, is what makes that recoverable — see
+     * scripts/sync-loops.ts.
+     */
+    loopsStage: text("loops_stage"),
+    loopsSyncedAt: timestamp("loops_synced_at", { withTimezone: true }),
+
+    /**
+     * Set when every child of this family is declined; a scheduled job
+     * removes the family after this date. Retention is disclosed on the form
+     * and is a promise to the PARENT, so it is theirs, not a child's.
+     */
+    purgeAfter: date("purge_after"),
+
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("enquiry_families_email_key").on(t.parentEmail)],
+);
+
+/**
+ * One conversation, about one child.
+ *
+ * The child is the unit of the funnel, not the family: a parent with two
+ * children has two conversations and they move at different speeds — the
+ * elder placed and enrolled while the younger is still an enquiry. A single
+ * row per family would force those into one status.
+ *
+ * A child who was declined and comes back next term re-opens this row rather
+ * than starting another, because what Sheeba wrote about them last time is
+ * exactly what she wants to read before replying.
+ *
+ * Nothing here references the programme tables, and nothing there references
+ * these. The free tools are marketing: they must be rewritable or deletable
+ * without any of it reaching the syllabus, the content library, or a child's
+ * progress.
+ */
 export const enquiries = pgTable(
   "enquiries",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    parentName: text("parent_name"),
-    parentEmail: text("parent_email"),
-    whatsapp: text("whatsapp"),
 
-    /** First name only, same rule as enrolled children. */
+    familyId: uuid("family_id")
+      .notNull()
+      .references(() => enquiryFamilies.id, { onDelete: "cascade" }),
+
+    /** First name only, same rule as enrolled children. Never a key. */
     childFirstName: text("child_first_name"),
     childAgeBand: ageBand("child_age_band"),
     childGrade: integer("child_grade"),
 
-    timezone: text("timezone").notNull().default("Asia/Kolkata"),
     source: enquirySource("source").notNull().default("demo_form"),
     status: enquiryStatus("status").notNull().default("new"),
 
-    /** Cal.com booking reference for the demo class. */
+    /** Cal.com booking reference for the free session. */
     calBookingId: text("cal_booking_id"),
     classAt: timestamp("class_at", { withTimezone: true }),
 
@@ -355,7 +427,7 @@ export const enquiries = pgTable(
     suggestedLevel: integer("suggested_level"),
     startingLevel: integer("starting_level"),
 
-    /** What the teacher saw in the demo class, and anything else worth keeping. */
+    /** What the teacher saw in the session, and anything else worth keeping. */
     teacherNotes: text("teacher_notes"),
     notes: text("notes"),
 
@@ -364,39 +436,19 @@ export const enquiries = pgTable(
      *
      * Unique, and it is what makes the webhook idempotent: Automette retries
      * with a stable event id, so the same enquiry legitimately arrives more
-     * than once and must not become two families.
+     * than once and must not become two children.
      */
     autometteSubmissionId: text("automette_submission_id"),
 
-    /**
-     * What Loops last heard from us, and when.
-     *
-     * This row is the ONLY source of truth for a lead's stage. Loops is a
-     * mirror we push to and never read back from — otherwise two systems own
-     * the same fact and they will disagree on the day it matters.
-     *
-     * The mirror decides which automation a parent is sitting in, so a push
-     * that quietly failed is not cosmetic: it is a family still being chased
-     * for a class they have already had. Recording the stage we actually
-     * pushed, rather than a boolean, is what makes that recoverable —
-     * anything where this differs from `status` is stale by definition and
-     * can be found and re-pushed without guessing. See scripts/sync-loops.ts.
-     */
-    loopsStage: text("loops_stage"),
-    loopsSyncedAt: timestamp("loops_synced_at", { withTimezone: true }),
-
-    /** Set on decline; a scheduled job removes the row after this date. */
-    purgeAfter: date("purge_after"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (t) => [
     index("enquiries_status_idx").on(t.status),
-    index("enquiries_email_idx").on(t.parentEmail),
+    index("enquiries_family_idx").on(t.familyId),
     unique("enquiries_automette_submission_unique").on(t.autometteSubmissionId),
   ],
 );
-
 /**
  * One run of one free tool. Entirely self-contained.
  *

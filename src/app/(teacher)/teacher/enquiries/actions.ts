@@ -5,9 +5,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { enquiries } from "@/db/schema";
+import { enquiries, enquiryFamilies } from "@/db/schema";
 import { appUrl } from "@/lib/booking";
-import { upsertEnquiry } from "@/lib/enquiries";
+import { enquiryWithFamily, upsertEnquiry } from "@/lib/enquiries";
 import { syncLeadById } from "@/lib/leads";
 import { sendToolLink } from "@/lib/notify";
 import { requireTeacher } from "@/lib/session";
@@ -16,11 +16,25 @@ import type { ToolKey } from "@/lib/tools";
 
 export type Result = { ok: true } | { ok: false; error: string };
 
+/** Every open conversation, with the parent behind each one. */
 export async function listEnquiries(status?: string) {
   await requireTeacher();
   return db
-    .select()
+    .select({
+      id: enquiries.id,
+      childFirstName: enquiries.childFirstName,
+      childAgeBand: enquiries.childAgeBand,
+      source: enquiries.source,
+      status: enquiries.status,
+      classAt: enquiries.classAt,
+      createdAt: enquiries.createdAt,
+      parentName: enquiryFamilies.parentName,
+      parentEmail: enquiryFamilies.parentEmail,
+      whatsapp: enquiryFamilies.whatsapp,
+      timezone: enquiryFamilies.timezone,
+    })
     .from(enquiries)
+    .innerJoin(enquiryFamilies, eq(enquiryFamilies.id, enquiries.familyId))
     .where(status ? eq(enquiries.status, status as "new") : undefined)
     .orderBy(desc(enquiries.createdAt))
     .limit(200);
@@ -110,16 +124,40 @@ export async function updateEnquiry(
       startingLevel: level(v.startingLevel),
       teacherNotes: v.teacherNotes?.trim() || null,
       notes: v.notes?.trim() || null,
-      // Declining starts the twelve-month clock disclosed on the form.
-      purgeAfter:
-        v.status === "declined"
+      updatedAt: new Date(),
+    })
+    .where(eq(enquiries.id, id));
+
+  /*
+   * Retention is a promise to the PARENT, disclosed on the form, so the clock
+   * lives on the family — and it can only start once EVERY child of theirs is
+   * declined. Deleting a family because one of two children was turned away
+   * would take the other's record with it.
+   */
+  const [me] = await db
+    .select({ familyId: enquiries.familyId })
+    .from(enquiries)
+    .where(eq(enquiries.id, id))
+    .limit(1);
+
+  if (me) {
+    const kids = await db
+      .select({ status: enquiries.status })
+      .from(enquiries)
+      .where(eq(enquiries.familyId, me.familyId));
+    const allDeclined = kids.every((k) => k.status === "declined");
+    await db
+      .update(enquiryFamilies)
+      .set({
+        purgeAfter: allDeclined
           ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
               .toISOString()
               .slice(0, 10)
           : null,
-      updatedAt: new Date(),
-    })
-    .where(eq(enquiries.id, id));
+        updatedAt: new Date(),
+      })
+      .where(eq(enquiryFamilies.id, me.familyId));
+  }
 
   // The stage a parent is at is the whole input to their automation, so this
   // is the most important sync of the lot: leaving Loops on "enquired" after
@@ -145,16 +183,14 @@ export async function issueToolLink(
 ): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
   await requireTeacher();
 
-  const enquiry = await db.query.enquiries.findFirst({
-    where: eq(enquiries.id, enquiryId),
-  });
-  if (!enquiry) return { ok: false, error: "That enquiry no longer exists." };
+  const row = await enquiryWithFamily(enquiryId);
+  if (!row) return { ok: false, error: "That enquiry no longer exists." };
 
   const run = await createRun({
     tool,
     enquiryId,
-    childFirstName: enquiry.childFirstName,
-    childAgeBand: enquiry.childAgeBand,
+    childFirstName: row.enquiry.childFirstName,
+    childAgeBand: row.enquiry.childAgeBand,
   });
 
   revalidatePath(`/teacher/enquiries/${enquiryId}`);
@@ -180,13 +216,9 @@ export async function emailToolLink(
 ): Promise<{ ok: true; url: string; sentTo: string } | { ok: false; error: string }> {
   await requireTeacher();
 
-  const enquiry = await db.query.enquiries.findFirst({
-    where: eq(enquiries.id, enquiryId),
-  });
-  if (!enquiry) return { ok: false, error: "That enquiry no longer exists." };
-  if (!enquiry.parentEmail) {
-    return { ok: false, error: "We don't have an email address for them." };
-  }
+  const row = await enquiryWithFamily(enquiryId);
+  if (!row) return { ok: false, error: "That enquiry no longer exists." };
+  const { enquiry, family } = row;
 
   const run = await createRun({
     tool,
@@ -197,8 +229,8 @@ export async function emailToolLink(
 
   const url = appUrl(`/check/${run.token}`);
   const sent = await sendToolLink({
-    to: enquiry.parentEmail,
-    parentName: enquiry.parentName,
+    to: family.parentEmail,
+    parentName: family.parentName,
     childFirstName: enquiry.childFirstName,
     url,
   });
@@ -208,5 +240,5 @@ export async function emailToolLink(
   if (!sent.ok) return { ok: false, error: sent.error ?? "That didn't send." };
 
   revalidatePath(`/teacher/enquiries/${enquiryId}`);
-  return { ok: true, url, sentTo: enquiry.parentEmail };
+  return { ok: true, url, sentTo: family.parentEmail };
 }

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { enquiries, toolRuns } from "@/db/schema";
+import { toolRuns } from "@/db/schema";
 import { bookingUrlFor } from "@/lib/booking";
 import { upsertEnquiry } from "@/lib/enquiries";
 import { syncLeadById } from "@/lib/leads";

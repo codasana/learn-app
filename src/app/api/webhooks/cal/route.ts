@@ -1,10 +1,10 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { db } from "@/db";
-import { enquiries } from "@/db/schema";
+import { enquiries, enquiryFamilies } from "@/db/schema";
 import { parseCalBooking, verifyCalWebhook } from "@/lib/cal-webhooks";
-import { syncLead } from "@/lib/leads";
+import { syncFamilyById } from "@/lib/leads";
 
 /**
  * Where a booked free session arrives from Cal.com.
@@ -53,24 +53,44 @@ export async function POST(req: Request) {
    * than invent a lead we know nothing about, and the booking still exists in
    * Cal.com where Sheeba can see it.
    */
-  const enquiry = booking.enquiryId
-    ? await db.query.enquiries.findFirst({
-        where: eq(enquiries.id, booking.enquiryId),
-      })
+  const matched = booking.enquiryId
+    ? await db
+        .select({ enquiry: enquiries, family: enquiryFamilies })
+        .from(enquiries)
+        .innerJoin(enquiryFamilies, eq(enquiryFamilies.id, enquiries.familyId))
+        .where(eq(enquiries.id, booking.enquiryId))
+        .limit(1)
     : booking.attendeeEmail
-      ? await db.query.enquiries.findFirst({
-          where: eq(enquiries.parentEmail, booking.attendeeEmail),
-          orderBy: [desc(enquiries.createdAt)],
-        })
-      : null;
+      ? /*
+         * By email we can only find the FAMILY, never which child. A parent
+         * with two children booking from the bare page is genuinely
+         * ambiguous, so take the one still waiting on a session — the other
+         * has already had theirs, and moving the wrong child to
+         * "class booked" is worse than leaving a human to sort it out.
+         */
+        await db
+          .select({ enquiry: enquiries, family: enquiryFamilies })
+          .from(enquiries)
+          .innerJoin(enquiryFamilies, eq(enquiryFamilies.id, enquiries.familyId))
+          .where(
+            and(
+              eq(enquiryFamilies.parentEmail, booking.attendeeEmail),
+              eq(enquiries.status, "new"),
+            ),
+          )
+          .orderBy(desc(enquiries.createdAt))
+          .limit(1)
+      : [];
 
-  if (!enquiry) {
+  const row = matched[0];
+  if (!row) {
     return NextResponse.json({
       ok: true,
       unmatched: booking.enquiryId ? "enquiry gone" : "no match",
     });
   }
 
+  const { enquiry, family } = row;
   const cancelled = booking.trigger === "BOOKING_CANCELLED";
 
   /*
@@ -92,17 +112,20 @@ export async function POST(req: Request) {
       classAt: cancelled ? null : new Date(booking.startTime),
       status:
         cancelled || enquiry.status !== "new" ? enquiry.status : "class_scheduled",
-      // The parent's own timezone, straight from their booking — better than
-      // the one we guessed on a form.
-      timezone: booking.attendeeTimezone ?? enquiry.timezone,
       updatedAt: new Date(),
     })
     .where(eq(enquiries.id, enquiry.id));
 
-  const updated = await db.query.enquiries.findFirst({
-    where: eq(enquiries.id, enquiry.id),
-  });
-  if (updated) await syncLead(updated, { previousStage: enquiry.loopsStage });
+  // The timezone they booked in beats the one we guessed on a form, and it
+  // belongs to the parent rather than to this child.
+  if (booking.attendeeTimezone && booking.attendeeTimezone !== family.timezone) {
+    await db
+      .update(enquiryFamilies)
+      .set({ timezone: booking.attendeeTimezone, updatedAt: new Date() })
+      .where(eq(enquiryFamilies.id, family.id));
+  }
+
+  await syncFamilyById(family.id);
 
   return NextResponse.json({ ok: true, enquiryId: enquiry.id });
 }

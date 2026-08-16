@@ -1,5 +1,5 @@
 /**
- * Push every lead whose Loops mirror has drifted.
+ * Push every family whose Loops mirror has drifted.
  *
  * Live syncs are best-effort by design — a Loops outage must never fail a
  * parent's form submission — which means some pushes are simply lost. This is
@@ -35,9 +35,10 @@ async function main() {
   const all = process.argv.includes("--all");
 
   const { db } = await import("../src/db");
-  const { enquiries } = await import("../src/db/schema");
+  const { enquiries, enquiryFamilies } = await import("../src/db/schema");
   const { loopsReady, testKey } = await import("../src/lib/loops");
-  const { syncLead, stageFor } = await import("../src/lib/leads");
+  const { syncFamily, stageFor, familyStage } = await import("../src/lib/leads");
+  const { eq } = await import("drizzle-orm");
 
   if (!loopsReady()) {
     console.error("LOOPS_API_KEY is not set. Nothing to do.");
@@ -50,34 +51,53 @@ async function main() {
     process.exit(1);
   }
 
-  const rows = await db.select().from(enquiries);
-  const withEmail = rows.filter((r) => r.parentEmail);
+  const families = await db.select().from(enquiryFamilies);
 
-  const drifted = all
-    ? withEmail
-    : withEmail.filter((r) => r.loopsStage !== stageFor(r.status));
+  // A family's contact carries the stage of whichever child is furthest
+  // along, so drift has to be measured against that, not against any one row.
+  const wanted = new Map<string, string>();
+  for (const f of families) {
+    const kids = await db
+      .select({ status: enquiries.status })
+      .from(enquiries)
+      .where(eq(enquiries.familyId, f.id));
+    if (kids.length === 0) continue;
+    wanted.set(f.id, stageFor(familyStage(kids.map((k) => k.status))));
+  }
+
+  const drifted = families.filter(
+    (f) => wanted.has(f.id) && (all || f.loopsStage !== wanted.get(f.id)),
+  );
 
   console.log(
-    `${rows.length} enquiries · ${withEmail.length} with an address · ${drifted.length} to push`,
+    `${families.length} families · ${wanted.size} with a child · ${drifted.length} to push`,
   );
 
   let ok = 0;
   let failed = 0;
 
-  for (const row of drifted) {
-    const to = stageFor(row.status);
-    const from = row.loopsStage ?? "never synced";
-    const label = `${row.parentEmail}  ${from} → ${to}`;
+  for (const f of drifted) {
+    const to = wanted.get(f.id);
+    const from = f.loopsStage ?? "never synced";
+    const label = `${f.parentEmail}  ${from} → ${to}`;
 
     if (dryRun) {
       console.log(`  would push  ${label}`);
       continue;
     }
 
-    // No event on a reconcile run: these transitions already happened, some
-    // of them days ago, and firing "class booked" now would send a parent a
-    // congratulations mail about a class they have already sat through.
-    const res = await syncLead(row, { previousStage: to });
+    /*
+     * No event on a reconcile run: these transitions already happened, some
+     * days ago, and firing "class booked" now would congratulate a parent on
+     * a session they have already sat through. Writing the target stage onto
+     * the row first makes syncFamily see no transition.
+     */
+    await db
+      .update(enquiryFamilies)
+      .set({ loopsStage: to })
+      .where(eq(enquiryFamilies.id, f.id));
+
+    const res = await syncFamily({ ...f, loopsStage: to ?? null });
     if (res.ok) {
       ok++;
       console.log(`  pushed      ${label}`);

@@ -9,6 +9,7 @@ import {
   childProfiles,
   contentItems,
   enquiries,
+  enquiryFamilies,
   enrollments,
   scheduledClasses,
   submissions,
@@ -175,11 +176,12 @@ export async function needsAttention(): Promise<Attention[]> {
   const open = await db
     .select({
       id: enquiries.id,
-      parentName: enquiries.parentName,
+      parentName: enquiryFamilies.parentName,
       childFirstName: enquiries.childFirstName,
       status: enquiries.status,
     })
     .from(enquiries)
+    .innerJoin(enquiryFamilies, eq(enquiryFamilies.id, enquiries.familyId))
     .where(inArray(enquiries.status, ["new", "class_scheduled", "class_done"]));
 
   for (const e of open) {
