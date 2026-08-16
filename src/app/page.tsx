@@ -4,7 +4,7 @@ import Link from "next/link";
 import { SiteFooter, SiteHeader } from "@/components/site/chrome";
 import { Panel, PanelCluster } from "@/components/site/panels";
 import { Button } from "@/components/ui/button";
-import { brand } from "@/lib/brand";
+import { brand, TeacherName } from "@/lib/brand";
 
 /**
  * The marketing home page.
@@ -155,7 +155,7 @@ function TheIdea() {
 const STEPS = [
   {
     n: "1",
-    title: "A free check, then a free class",
+    title: "A free check, then a free session",
     body: "Your child does the twelve-minute check on their own. Then you both meet the teacher for half an hour — no obligation, nothing to prepare.",
     tone: "var(--panel-peach)",
   },
@@ -264,10 +264,10 @@ function Teacher({ booking }: { booking: string | null }) {
             One teacher, and she&rsquo;ll know your child&rsquo;s name
           </h2>
           <p className="mt-4 text-lg text-[var(--ink-muted)]">
-            Sheeba has taught English in an international school for years. She
-            plans every lesson, teaches every class, and reads every piece of
-            writing herself. Nothing is handed to an assistant, and nothing is
-            marked by a machine.
+            {TeacherName()} has taught English in an international school for
+            years. She plans every lesson, teaches every class, and reads every
+            piece of writing herself. Nothing is handed to an assistant, and
+            nothing is marked by a machine.
           </p>
           {/*
             No waiting list. There isn't one, and inventing scarcity is the
@@ -288,7 +288,7 @@ function Teacher({ booking }: { booking: string | null }) {
                 variant="secondary"
                 className="rounded-[var(--radius-lg)] px-6 py-4"
               >
-                <Link href={booking}>Book a free class with her</Link>
+                <Link href={booking}>Book a free session with her</Link>
               </Button>
             </div>
           )}
@@ -323,7 +323,7 @@ function Abroad() {
 /**
  * No number, and a reason.
  *
- * The fee is agreed per family after the free class — one child or a small
+ * The fee is agreed per family after the free session — one child or a small
  * group, two classes a week or one. That is a real reason not to print a
  * price, but it only works if the page says it. A parent who finds no figure
  * and no explanation concludes it is expensive and leaves, which is the exact
@@ -341,14 +341,14 @@ function Price() {
         <div className="mt-5 max-w-2xl space-y-4 text-lg text-[var(--ink-muted)]">
           <p>
             <strong className="text-[var(--ink)]">
-              The first class is free, and there is nothing to pay until
+              The first session is free, and there is nothing to pay until
               you&rsquo;ve met her.
             </strong>
           </p>
           <p>
             After that it depends on what suits your child — one to one or a
-            small group, and how often. Sheeba works that out with you at the
-            end of the free class and tells you the fee then, in your own
+            small group, and how often. {TeacherName()} works that out with you
+            at the end of the free session and tells you the fee then, in your own
             currency. We would rather quote you honestly than print a number
             that turns out not to apply.
           </p>
@@ -386,7 +386,7 @@ function LastWord({ booking }: { booking: string | null }) {
               variant="secondary"
               className="rounded-[var(--radius-lg)] border-0 bg-[var(--surface)] px-6 py-4"
             >
-              <Link href={booking}>Or just book a class</Link>
+              <Link href={booking}>Or just book a free session</Link>
             </Button>
           )}
         </div>
@@ -394,7 +394,7 @@ function LastWord({ booking }: { booking: string | null }) {
         {booking && (
           <p className="mt-5 text-[var(--ink-muted)]">
             Some people would rather talk to a person than take a test. That is
-            completely fine — the class is free either way.
+            completely fine — the session is free either way.
           </p>
         )}
       </div>

@@ -12,7 +12,7 @@ import { syncLeadById } from "@/lib/leads";
 import { readAnswers } from "./read-answers";
 
 /**
- * Where "Book a free class" arrives from Automette.
+ * Where "Book a free session" arrives from Automette.
  *
  * Unauthenticated by design — the signature is the authentication. Anything
  * that fails verification is refused before a single byte is trusted, and the

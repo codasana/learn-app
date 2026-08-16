@@ -69,7 +69,15 @@ export function AutometteForm({
       // be a surprise worth preventing rather than explaining.
       allow=""
       referrerPolicy="no-referrer"
-      className="w-full rounded-[var(--radius-card)] border-0 bg-transparent transition-[height] duration-200"
+      /*
+        No border-radius here, deliberately.
+
+        An iframe clips its own content to its corner radius, and this frame is
+        transparent — so rounding it bought nothing visible and quietly ate the
+        top-left of the first field label. The panel behind it is what provides
+        the rounded shape; the frame only has to stay out of the way.
+      */
+      className="w-full border-0 bg-transparent transition-[height] duration-200"
     />
   );
 }

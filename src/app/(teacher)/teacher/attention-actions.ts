@@ -189,8 +189,8 @@ export async function needsAttention(): Promise<Attention[]> {
         e.status === "new"
           ? `${e.parentName ?? "Someone"} is waiting to hear back`
           : e.status === "class_scheduled"
-            ? `${e.childFirstName ?? e.parentName} has a free class booked`
-            : `${e.childFirstName ?? e.parentName} had their free class`,
+            ? `${e.childFirstName ?? e.parentName} has a free session booked`
+            : `${e.childFirstName ?? e.parentName} had their free session`,
       detail:
         e.status === "class_done"
           ? "Send the report, or let them go"

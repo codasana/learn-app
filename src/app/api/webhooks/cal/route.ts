@@ -7,7 +7,7 @@ import { parseCalBooking, verifyCalWebhook } from "@/lib/cal-webhooks";
 import { syncLead } from "@/lib/leads";
 
 /**
- * Where a booked free class arrives from Cal.com.
+ * Where a booked free session arrives from Cal.com.
  *
  * This is what makes the funnel close itself. Without it, a parent books a
  * time and the only two systems that need to know — the enquiry list Sheeba

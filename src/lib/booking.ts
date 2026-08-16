@@ -1,5 +1,5 @@
 /**
- * Where a parent books the free class, and where our own links point.
+ * Where a parent books the free session, and where our own links point.
  *
  * Booking is Cal.com and stays Cal.com: it handles a Gulf family picking an
  * evening slot in Indian time without us writing a line of timezone code, and

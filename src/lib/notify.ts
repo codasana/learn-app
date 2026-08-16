@@ -1,6 +1,6 @@
 import "server-only";
 
-import { brand } from "@/lib/brand";
+import { brand, teacherName, TeacherName } from "@/lib/brand";
 import { appUrl, bookingUrl } from "@/lib/booking";
 import { ADMIN_EMAIL, sendEmail } from "@/lib/email";
 
@@ -8,7 +8,7 @@ import { ADMIN_EMAIL, sendEmail } from "@/lib/email";
  * The messages this program sends, in one file so the voice can be read in one
  * sitting. src/lib/email.ts is the transport; this is what we actually say.
  *
- * Only the free check needs code. The "Book a free class" form is an Automette
+ * Only the free check needs code. The "Book a free session" form is an Automette
  * form, and Automette already emails the parent a confirmation and the teacher
  * an alert with reply-to set to the parent — duplicating either here would put
  * two near-identical emails in the same inbox. The booking link belongs in
@@ -86,19 +86,19 @@ export function checkResultEmail({
     .join("\n");
 
   const next = book
-    ? `Half an hour with Sheeba, free. She talks to ${who}, gets a proper sense
-of where they are, and tells you honestly whether this is the right thing for
-them — including when it isn't.
+    ? `The next step is a free session with ${teacherName()} — half an hour. She talks to
+${who}, gets a proper sense of where they are, and tells you honestly whether
+this is the right thing for them, including when it isn't.
 
 Pick a time that suits you. The times you see are in your own timezone:
 
   ${book}
 
 Nothing to pay and nothing to prepare.`
-    : `Half an hour with Sheeba, free. She talks to ${who}, gets a proper sense
-of where they are, and tells you honestly whether this is the right thing for
-them — including when it isn't. She will write to you shortly with a few times
-that work where you are.
+    : `The next step is a free session with ${teacherName()} — half an hour. She talks to
+${who}, gets a proper sense of where they are, and tells you honestly whether
+this is the right thing for them, including when it isn't. She will write to
+you shortly with a few times that work where you are.
 
 Nothing to pay and nothing to prepare.`;
 
@@ -112,7 +112,7 @@ Strongest area: ${result.strongest}.
 
 That is a rough picture rather than a verdict — seventeen questions can only
 say so much, and none of it involves anyone having met ${who}. What it is good
-for is telling Sheeba where to begin.
+for is telling ${teacherName()} where to begin.
 
 ${next}
 
@@ -142,7 +142,7 @@ export async function sendCheckResult(
 }
 
 /**
- * Sheeba sending a family the check, before or after their class.
+ * Sheeba sending a family the check, before or after their session.
  *
  * Short on purpose. This one is from a person — she has usually spoken to
  * them, or is about to — so it reads as a note rather than a campaign, and it
@@ -170,7 +170,7 @@ tied to you, so nobody will be asked for an email again.
 It works best if ${who} does it alone, in one sitting. There is no pass mark
 and nothing rides on it: it just tells me where to begin.
 
-— Sheeba
+— ${TeacherName()}
 `;
 
   return {

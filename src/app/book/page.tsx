@@ -4,9 +4,10 @@ import { notFound } from "next/navigation";
 
 import { AutometteForm } from "@/components/site/automette-form";
 import { SiteFooter, SiteHeader } from "@/components/site/chrome";
+import { teacherName } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Book a free class",
+  title: "Book a free session",
   description:
     "Half an hour with the teacher. No obligation, nothing to prepare, and nothing to pay.",
 };
@@ -38,20 +39,24 @@ export default function BookPage() {
           description, set through the API. It is fields and nothing else, so
           the page owns the framing.
         */}
-        <h1 className="text-3xl font-bold sm:text-4xl">Book a free class</h1>
+        <h1 className="text-3xl font-bold sm:text-4xl">Book a free session</h1>
         <p className="mt-4 text-lg text-[var(--ink-muted)]">
-          Half an hour with Sheeba. She will talk to your child, get a sense of
-          where they are, and tell you honestly whether this is the right thing
-          for them. Nothing to prepare, and nothing to pay.
+          Half an hour with {teacherName()}. She will talk to your child, get a
+          sense of where they are, and tell you honestly whether this is the
+          right thing for them. Nothing to prepare, and nothing to pay.
         </p>
 
         {/*
           A lilac panel, matching every other section of the site. The embed is
           genuinely transparent, so the fields sit straight on it rather than
           on a card of their own — one surface, not two.
+
+          The padding is at least the panel's own 40px corner radius, so the
+          first field label clears the curve. At less than that, the top-left
+          of "Your name" sits in the bite the rounded corner takes out.
         */}
-        <div className="mt-8 rounded-[var(--radius-panel)] bg-[var(--panel-lilac)] p-4 sm:p-6">
-          <AutometteForm src={embed} title="Book a free class" />
+        <div className="mt-8 rounded-[var(--radius-panel)] bg-[var(--panel-lilac)] p-6 sm:p-10">
+          <AutometteForm src={embed} title="Book a free session" />
         </div>
 
         <p className="mt-8 text-center text-[var(--ink-muted)]">

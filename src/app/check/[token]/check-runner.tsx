@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Field, Input, Notice } from "@/components/ui/field";
-import { brand } from "@/lib/brand";
+import { brand, teacherName } from "@/lib/brand";
 
 import { requestReport, submitCheck } from "../actions";
 
@@ -517,7 +517,7 @@ function Result({
 
       <p className="mt-4 text-[var(--ink-muted)]">
         This is a rough picture, not a verdict — seventeen questions can only
-        say so much. What it&rsquo;s good for is telling Sheeba where to begin.
+        say so much. What it&rsquo;s good for is telling {teacherName()} where to begin.
       </p>
 
       {/*
@@ -555,15 +555,15 @@ function Result({
       <div className="mt-8 rounded-[var(--radius-card)] bg-[var(--panel-mint)] p-6">
         <h2 className="text-xl font-bold">What happens next</h2>
         <p className="mt-2 text-[var(--ink-muted)]">
-          Half an hour with Sheeba, free. She talks to {who}, gets a proper
-          sense of where they are, and tells you honestly whether this is the
-          right thing for them — including when it isn&rsquo;t.
+          A free session with {teacherName()} — half an hour. She talks to {who}, gets a
+          proper sense of where they are, and tells you honestly whether this
+          is the right thing for them, including when it isn&rsquo;t.
         </p>
         {bookingUrl ? (
           <>
             <Button asChild size="lg" className="mt-5">
               <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
-                Book a session with Sheeba
+                Book a session with {teacherName()}
               </a>
             </Button>
             <p className="mt-3 text-sm text-[var(--ink-faint)]">
@@ -573,7 +573,7 @@ function Result({
           </>
         ) : (
           <p className="mt-3 text-sm text-[var(--ink-faint)]">
-            Leave your email below and Sheeba will write to you with a few
+            Leave your email below and {teacherName()} will write to you with a few
             times that work where you are.
           </p>
         )}
@@ -595,9 +595,8 @@ function Result({
               Want this in your inbox?
             </h2>
             <p className="mt-1 text-[var(--ink-muted)]">
-              We&rsquo;ll send exactly what&rsquo;s on this page, so a parent
-              can look at it later. Nothing else is held back — you&rsquo;ve
-              already seen the whole thing.
+              We&rsquo;ll email it over, so it&rsquo;s easy to find again or to
+              show someone at home.
             </p>
           </div>
 

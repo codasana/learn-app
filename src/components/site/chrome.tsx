@@ -45,7 +45,7 @@ export async function SiteHeader() {
               <NavLink href="/check">Free check</NavLink>
               <NavLink href="/login">Sign in</NavLink>
               <NavLink href="/book" primary>
-                Book a free class
+                Book a free session
               </NavLink>
             </>
           )}
@@ -98,7 +98,7 @@ export function SiteFooter() {
               Check your child&rsquo;s English
             </Link>
             <Link href="/book" className="hover:text-[var(--primary)]">
-              Book a free class
+              Book a free session
             </Link>
             <Link href="/login" className="hover:text-[var(--primary)]">
               Sign in
