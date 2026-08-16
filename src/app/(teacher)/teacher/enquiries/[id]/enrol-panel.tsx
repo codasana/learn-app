@@ -6,7 +6,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Field, Input, Notice, Select, Textarea } from "@/components/ui/field";
-import { AVATAR_KEYS, avatarEmoji } from "@/lib/avatars";
+import { AVATARS, AVATAR_KEYS } from "@/lib/avatars";
 
 import { enrolFromEnquiry } from "../actions";
 
@@ -140,7 +140,7 @@ export function EnrolPanel({
         <Select id="avatar" name="avatar" defaultValue="fox">
           {AVATAR_KEYS.map((k) => (
             <option key={k} value={k}>
-              {avatarEmoji(k)} {k}
+              {AVATARS[k].emoji}  {AVATARS[k].label}
             </option>
           ))}
         </Select>

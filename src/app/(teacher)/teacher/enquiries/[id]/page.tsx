@@ -48,7 +48,14 @@ export default async function EnquiryPage({
   const siblings = await siblingsOf(enquiry.id, family.id);
 
   return (
-    <div className="space-y-6">
+    /*
+      One column, one width. The layout gives this page 1152px; left
+      unconstrained, a first-name box was rendering over a thousand pixels
+      wide while the form beneath it sat at half that. Everything here is
+      read and typed, so it all wants a reading measure rather than the full
+      shell.
+    */
+    <div className="max-w-3xl space-y-6">
       <div>
         <Link
           href="/teacher/enquiries"

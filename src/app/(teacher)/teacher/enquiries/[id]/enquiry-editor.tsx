@@ -242,7 +242,7 @@ export function EnquiryEditor({
       </section>
 
       {/* --- what you decided --- */}
-      <form onSubmit={onSave} className="max-w-xl space-y-5">
+      <form onSubmit={onSave} className="space-y-5">
         <Field label="Where they are" htmlFor="status">
           <Select id="status" name="status" defaultValue={enquiry.status}>
             {STATUSES.map(([value, label]) => (
