@@ -26,20 +26,20 @@ function confirmationMessage(booking: string | null): string {
   if (!booking) {
     return `Thank you for asking.
 
-${TeacherName()} reads every one of these herself, so it may take a day
-before you hear back. When she does, she will suggest a few times that
-work where you are — not where we are.
+${TeacherName()} reads every one of these personally, so it may take a
+day before you hear back. You will then be offered a few times that work
+where you are — not where we are.
 
 There is nothing to pay and nothing to prepare. The first session is free,
-and if it turns out we are not the right fit she will say so.`;
+and if it turns out we are not the right fit you will be told so.`;
   }
 
   return `Thank you for asking.
 
 You can pick a time right now, if you would like to. It is a free session
-with ${teacherName()}, half an hour — she talks to your child, gets a proper
-sense of where they are, and tells you honestly whether this is the right
-thing for them, including when it isn't.
+with ${teacherName()}, half an hour — a proper conversation with your child,
+a sense of where they are, and an honest answer on whether this is the
+right thing for them, including when it isn't.
 
   ${booking}
 
@@ -47,7 +47,7 @@ The times you see are in your own timezone. Nothing to pay and nothing
 to prepare.
 
 If none of them suit, just reply to this email and ${teacherName()} will
-find something that does. She reads every one of these herself.`;
+find something that does. Every one of these is read personally.`;
 }
 
 async function main() {

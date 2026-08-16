@@ -41,9 +41,9 @@ export default function BookPage() {
         */}
         <h1 className="text-3xl font-bold sm:text-4xl">Book a free session</h1>
         <p className="mt-4 text-lg text-[var(--ink-muted)]">
-          Half an hour with {teacherName()}. She will talk to your child, get a
-          sense of where they are, and tell you honestly whether this is the
-          right thing for them. Nothing to prepare, and nothing to pay.
+          Half an hour with {teacherName()} — a proper conversation with your
+          child, a sense of where they are, and an honest answer on whether
+          this is the right thing for them. Nothing to prepare, nothing to pay.
         </p>
 
         {/*

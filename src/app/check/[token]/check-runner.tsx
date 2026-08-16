@@ -555,9 +555,10 @@ function Result({
       <div className="mt-8 rounded-[var(--radius-card)] bg-[var(--panel-mint)] p-6">
         <h2 className="text-xl font-bold">What happens next</h2>
         <p className="mt-2 text-[var(--ink-muted)]">
-          A free session with {teacherName()} — half an hour. She talks to {who}, gets a
-          proper sense of where they are, and tells you honestly whether this
-          is the right thing for them, including when it isn&rsquo;t.
+          A free session with {teacherName()} — half an hour talking with{" "}
+          {who}, getting a proper sense of where they are, and an honest answer
+          on whether this is the right thing for them, including when it
+          isn&rsquo;t.
         </p>
         {bookingUrl ? (
           <>

@@ -162,7 +162,7 @@ const STEPS = [
   {
     n: "2",
     title: "Two live classes a week",
-    body: "Forty-five minutes each, one child or a very small group. The same teacher every week, who marks the writing herself and remembers what your child found hard last Tuesday.",
+    body: "Forty-five minutes each, one child or a very small group. The same teacher every week, who marks the writing personally and remembers what your child found hard last Tuesday.",
     tone: "var(--panel-mint)",
   },
   {
@@ -261,12 +261,12 @@ function Teacher({ booking }: { booking: string | null }) {
 
         <div>
           <h2 className="text-3xl font-bold sm:text-4xl">
-            One teacher, and she&rsquo;ll know your child&rsquo;s name
+            One teacher, and they&rsquo;ll know your child&rsquo;s name
           </h2>
           <p className="mt-4 text-lg text-[var(--ink-muted)]">
-            {TeacherName()} has taught English in an international school for
-            years. She plans every lesson, teaches every class, and reads every
-            piece of writing herself. Nothing is handed to an assistant, and
+            {TeacherName()} has taught English to children of this age for
+            years — planning every lesson, teaching every class, and reading
+            every piece of writing. Nothing is handed to an assistant, and
             nothing is marked by a machine.
           </p>
           {/*
@@ -276,9 +276,9 @@ function Teacher({ booking }: { booking: string | null }) {
             real on its own and says the same thing honestly.
           */}
           <p className="mt-4 text-lg text-[var(--ink-muted)]">
-            That is also the limit: she can only teach a small number of
-            children at a time. It is the reason this works, and the reason we
-            take on very few at once.
+            That is also the limit: one teacher can only take a small number
+            of children at a time. It is the reason this works, and the reason
+            we take on very few at once.
           </p>
 
           {booking && (
@@ -288,7 +288,7 @@ function Teacher({ booking }: { booking: string | null }) {
                 variant="secondary"
                 className="rounded-[var(--radius-lg)] px-6 py-4"
               >
-                <Link href={booking}>Book a free session with her</Link>
+                <Link href={booking}>Book a free session</Link>
               </Button>
             </div>
           )}
@@ -342,13 +342,13 @@ function Price() {
           <p>
             <strong className="text-[var(--ink)]">
               The first session is free, and there is nothing to pay until
-              you&rsquo;ve met her.
+              you&rsquo;ve met your teacher.
             </strong>
           </p>
           <p>
             After that it depends on what suits your child — one to one or a
-            small group, and how often. {TeacherName()} works that out with you
-            at the end of the free session and tells you the fee then, in your own
+            small group, and how often. {TeacherName()} works that out with you at
+            the end of the free session and tells you the fee then, in your own
             currency. We would rather quote you honestly than print a number
             that turns out not to apply.
           </p>

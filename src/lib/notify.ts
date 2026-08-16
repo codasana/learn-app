@@ -86,19 +86,19 @@ export function checkResultEmail({
     .join("\n");
 
   const next = book
-    ? `The next step is a free session with ${teacherName()} — half an hour. She talks to
-${who}, gets a proper sense of where they are, and tells you honestly whether
-this is the right thing for them, including when it isn't.
+    ? `The next step is a free session with ${teacherName()} — half an hour
+talking with ${who}, getting a proper sense of where they are, and an honest
+answer on whether this is the right thing for them, including when it isn't.
 
 Pick a time that suits you. The times you see are in your own timezone:
 
   ${book}
 
 Nothing to pay and nothing to prepare.`
-    : `The next step is a free session with ${teacherName()} — half an hour. She talks to
-${who}, gets a proper sense of where they are, and tells you honestly whether
-this is the right thing for them, including when it isn't. She will write to
-you shortly with a few times that work where you are.
+    : `The next step is a free session with ${teacherName()} — half an hour
+talking with ${who}, getting a proper sense of where they are, and an honest
+answer on whether this is the right thing for them, including when it isn't.
+You will hear shortly with a few times that work where you are.
 
 Nothing to pay and nothing to prepare.`;
 
