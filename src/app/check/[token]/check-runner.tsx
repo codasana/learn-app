@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Field, Input, Notice } from "@/components/ui/field";
-import { brand, teacherName, TeacherName } from "@/lib/brand";
+import { brand, teacherName } from "@/lib/brand";
 
 import { requestReport, submitCheck } from "../actions";
 
@@ -32,7 +32,6 @@ export function CheckRunner({
   listeningScript,
   sectionLabels,
   result,
-  bookingUrl,
 }: {
   token: string;
   childFirstName: string | null;
@@ -42,7 +41,6 @@ export function CheckRunner({
   listeningScript: string;
   sectionLabels: Record<string, string>;
   result: Partial | null;
-  bookingUrl: string | null;
 }) {
   if (result) {
     return (
@@ -51,7 +49,6 @@ export function CheckRunner({
         childFirstName={childFirstName}
         alreadyKnown={alreadyKnown}
         result={result}
-        bookingUrl={bookingUrl}
       />
     );
   }
@@ -427,18 +424,13 @@ function Result({
   childFirstName,
   alreadyKnown,
   result,
-  bookingUrl,
 }: {
   token: string;
   childFirstName: string | null;
   alreadyKnown: boolean;
   result: Partial;
-  bookingUrl: string | null;
 }) {
   const [sent, setSent] = useState(alreadyKnown);
-  // Null until they submit, or handed down already when this run is one the
-  // teacher issued to a family we already know.
-  const [booking, setBooking] = useState<string | null>(bookingUrl);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -456,7 +448,6 @@ function Result({
       setMessage(res.error);
       return;
     }
-    if (res.bookingUrl) setBooking(res.bookingUrl);
     setSent(true);
   }
 
@@ -551,19 +542,18 @@ function Result({
       </div>
 
       {/*
-        One ask, not two.
+        One ask, and no calendar anywhere on the site.
 
-        This used to be a Cal.com button with a separate "want this emailed?"
-        form beneath it — two asks doing half a job each, and the button was
-        the wrong one to lead with. A calendar-first link converts the few
-        ready to book this second and loses everyone else without trace,
-        whereas a lead can be followed up.
+        This was briefly a Cal.com button with a separate "want this emailed?"
+        form beneath it: two asks each doing half a job, led by the wrong one.
+        A calendar reachable from the page converts whoever is ready to book
+        in that minute and loses everyone else without trace.
 
-        So the form IS the booking request. It writes the enquiry, which is
-        already tied to this check run, and hands back a Cal.com link carrying
-        the enquiry id — shown right here, on this page, the moment they
-        submit. Nobody waits for an email to pick a time, and nobody is lost
-        if they never do.
+        So the form is the only ask, on this page and on /book alike, and the
+        booking link exists solely inside the reply. Everyone who wants a time
+        is a lead we are holding first — and can follow up when they go quiet.
+        The enquiry is written here and already tied to this check run; the
+        link that reaches their inbox carries its id.
       */}
       <div className="mt-8 rounded-[var(--radius-card)] bg-[var(--panel-mint)] p-6">
         <h2 className="text-xl font-bold">Ask for a free session</h2>
@@ -577,29 +567,12 @@ function Result({
         {sent ? (
           <div className="mt-5">
             <p className="font-medium text-[var(--correct)]">
-              Got it — this result is on its way to you by email.
+              Got it — check your email.
             </p>
-            {booking ? (
-              <>
-                <p className="mt-1 text-[var(--ink-muted)]">
-                  You can pick a time now, or leave it and reply to the email.
-                </p>
-                <Button asChild size="lg" className="mt-4">
-                  <a href={booking} target="_blank" rel="noopener noreferrer">
-                    Pick a time
-                  </a>
-                </Button>
-                <p className="mt-3 text-sm text-[var(--ink-faint)]">
-                  You&rsquo;ll see the times in your own timezone. Nothing to
-                  pay and nothing to prepare.
-                </p>
-              </>
-            ) : (
-              <p className="mt-1 text-[var(--ink-muted)]">
-                {TeacherName()} will write to you with a few times that work
-                where you are.
-              </p>
-            )}
+            <p className="mt-1 text-[var(--ink-muted)]">
+              This result is in there, along with a link to pick a time that
+              suits you. Nothing to pay and nothing to prepare.
+            </p>
           </div>
         ) : (
           <form onSubmit={onSubmit} className="mt-5 space-y-5">

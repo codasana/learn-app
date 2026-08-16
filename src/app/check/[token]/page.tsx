@@ -1,12 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { eq } from "drizzle-orm";
-
 import { Button } from "@/components/ui/button";
-import { db } from "@/db";
-import { enquiries } from "@/db/schema";
-import { bookingUrlFor } from "@/lib/booking";
 import { brand } from "@/lib/brand";
 import { levelCheck, TOOLS } from "@/lib/tools";
 import { findRunByToken } from "@/lib/tool-runs";
@@ -48,12 +43,6 @@ export default async function CheckRunPage({
     );
   }
 
-  // Prefilling the booking with the address we already hold is what stops a
-  // parent booking under a second email and becoming an unmatched booking.
-  const known = run.enquiryId
-    ? await db.query.enquiries.findFirst({ where: eq(enquiries.id, run.enquiryId) })
-    : null;
-
   const done = Boolean(run.completedAt);
   const result = done
     ? levelCheck.resultSchema.safeParse(run.result)
@@ -69,26 +58,6 @@ export default async function CheckRunPage({
       listeningScript={levelCheck.LISTENING_SCRIPT}
       sectionLabels={levelCheck.SECTION_LABELS}
       result={result?.success ? levelCheck.partialResult(result.data) : null}
-      /*
-        Read on the server: the runner is a client component and
-        CAL_BOOKING_URL is not a NEXT_PUBLIC_ value, so it is handed down
-        rather than looked up.
-
-        Only populated when this run already belongs to a family — a link the
-        teacher issued, or a page revisited after submitting. Everyone else
-        gets it back from the form, because until they submit there is no
-        enquiry id to put on it. Null throughout degrades to "your teacher
-        will write to you with times" rather than a dead button.
-      */
-      bookingUrl={
-        run.enquiryId
-          ? bookingUrlFor({
-              enquiryId: run.enquiryId,
-              name: known?.parentName,
-              email: known?.parentEmail,
-            })
-          : null
-      }
     />
   );
 }
