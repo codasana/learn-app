@@ -260,13 +260,35 @@ function suggestLevel(fraction: number): number {
 }
 
 /**
- * The honest half-result a child sees straight away, before anyone has given
- * us an email. Gate the report, not the tool.
+ * The whole result, shown the moment they finish, to anyone, for nothing.
+ *
+ * This used to be a deliberate half — a total and a superlative — with the
+ * rest held back behind an email. That gate is gone, and it should not come
+ * back, for a reason worth writing down: everything here is arithmetic over
+ * seventeen multiple-choice answers. There is no judgement in it, because
+ * nobody has met the child yet. Charging an email for arithmetic is what
+ * forced us to call it a "full report" — a thing that then had to either
+ * disappoint on arrival or turn up days later as something else entirely.
+ *
+ * So this is free, and the ask moves to what genuinely needs an address: a
+ * session with Sheeba, which is where the judgement actually happens.
+ *
+ * `suggestedLevel` stays OUT. It is the one figure here that reads as a
+ * verdict, and a verdict is exactly what seventeen taps cannot support. It
+ * goes to Sheeba instead, as an opening for a conversation.
  */
 export function partialResult(result: Result) {
   return {
     total: result.total,
     outOf: result.outOf,
     strongest: SECTION_LABELS[result.strongest as Section],
+    sections: SECTIONS.map((s) => ({
+      key: s,
+      label: SECTION_LABELS[s],
+      score: result.sections[s]?.score ?? 0,
+      outOf: result.sections[s]?.outOf ?? 0,
+    })),
   };
 }
+
+export type PartialResult = ReturnType<typeof partialResult>;

@@ -21,7 +21,12 @@ import { ADMIN_EMAIL, sendEmail } from "@/lib/email";
  * file may throw.
  */
 
-type CheckResult = { total: number; outOf: number; strongest: string };
+type CheckResult = {
+  total: number;
+  outOf: number;
+  strongest: string;
+  sections?: Array<{ label: string; score: number; outOf: number }>;
+};
 
 /** The transport is only configured in some environments. Say so, once. */
 function canSend(): boolean {
@@ -49,10 +54,14 @@ async function trySend(args: Parameters<typeof sendEmail>[0], label: string) {
 /**
  * What a parent gets after asking for the report.
  *
- * It leads with the class, not the report. The class is the thing we can
- * deliver this minute — a link she can book in her own timezone — while the
- * report is written by hand and takes a day. Leading with the slower half
- * would waste the one moment this parent is actually paying attention.
+ * It contains the result and nothing withheld, because that is what the
+ * screen said it would contain. The old version promised a hand-written
+ * one-page report "in a day or so" — a promise made by software and kept by a
+ * person, for a document that does not exist.
+ *
+ * What Sheeba writes comes AFTER she has met the child, and it is worth
+ * waiting for precisely because it cannot be generated. This email does not
+ * pre-sell it; it sells the session, which is the thing that produces it.
  */
 export function checkResultEmail({
   parentName,
@@ -69,44 +78,52 @@ export function checkResultEmail({
   const Who = childFirstName ?? "Your child";
   const book = bookingUrl();
 
-  const next = book
-    ? `The useful next step is a free 30-minute class with Sheeba. She will talk
-to ${who}, get a proper sense of where they are, and tell you honestly whether
-this is the right thing for them.
+  // Padded so the numbers line up in a monospaced mail client and still read
+  // sensibly in a proportional one.
+  const width = Math.max(...(result.sections ?? []).map((s) => s.label.length), 0);
+  const breakdown = (result.sections ?? [])
+    .map((s) => `  ${s.label.padEnd(width)}   ${s.score} out of ${s.outOf}`)
+    .join("\n");
 
-Pick a time that suits you — the times you see are in your own timezone:
+  const next = book
+    ? `Half an hour with Sheeba, free. She talks to ${who}, gets a proper sense
+of where they are, and tells you honestly whether this is the right thing for
+them — including when it isn't.
+
+Pick a time that suits you. The times you see are in your own timezone:
 
   ${book}
 
-There is nothing to pay and nothing to prepare.`
-    : `The useful next step is a free 30-minute class with Sheeba. She will talk
-to ${who}, get a proper sense of where they are, and tell you honestly whether
-this is the right thing for them. She will write to you shortly with a few
-times that work where you are.
+Nothing to pay and nothing to prepare.`
+    : `Half an hour with Sheeba, free. She talks to ${who}, gets a proper sense
+of where they are, and tells you honestly whether this is the right thing for
+them — including when it isn't. She will write to you shortly with a few times
+that work where you are.
 
-There is nothing to pay and nothing to prepare.`;
+Nothing to pay and nothing to prepare.`;
 
   const text = `Hello ${parentName},
 
-${Who} finished the check: ${result.total} out of ${result.outOf}, strongest area ${result.strongest}.
+${Who} finished the check: ${result.total} out of ${result.outOf}.
 
-That number is a starting point rather than a verdict. It tells us roughly
-where to begin and very little else — which is why the next bit matters more.
+${breakdown}
+
+Strongest area: ${result.strongest}.
+
+That is a rough picture rather than a verdict — seventeen questions can only
+say so much, and none of it involves anyone having met ${who}. What it is good
+for is telling Sheeba where to begin.
 
 ${next}
 
-Sheeba reads every check herself and writes a one-page report to go with it:
-what ${who} did well, what to work on next, and where they would start. It
-follows in a day or so.
-
-The result itself stays here, if you would like to look again:
+The result stays here, if you would like to look at it again:
 
   ${appUrl(`/check/${token}`)}
 
 — ${brand.name}
 `;
 
-  return { subject: `${Who}'s check result — and a free class`, text };
+  return { subject: `${Who}'s check result`, text };
 }
 
 export async function sendCheckResult(

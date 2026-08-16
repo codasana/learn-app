@@ -16,7 +16,12 @@ type Question = {
   options: string[];
 };
 
-type Partial = { total: number; outOf: number; strongest: string };
+type Partial = {
+  total: number;
+  outOf: number;
+  strongest: string;
+  sections: Array<{ key: string; label: string; score: number; outOf: number }>;
+};
 
 export function CheckRunner({
   token,
@@ -458,6 +463,15 @@ function Result({
         All done{childFirstName ? `, ${childFirstName}` : ""}
       </h1>
 
+      {/*
+        The whole result, free, with nothing held back.
+
+        It used to be a total and a superlative, with the breakdown behind an
+        email. But all of this is arithmetic over seventeen taps — there is no
+        judgement in it, because nobody has met the child. Charging an address
+        for arithmetic is what made us call it a "full report", and that was a
+        promise no instant document could keep.
+      */}
       <div className="mt-6 rounded-[var(--radius-card)] bg-[var(--panel-lilac)] px-7 py-8">
         <p className="text-5xl font-bold tabular-nums">
           {result.total}
@@ -470,7 +484,41 @@ function Result({
           Strongest area:{" "}
           <strong className="font-bold">{result.strongest}</strong>
         </p>
+
+        <ul className="mt-6 space-y-4 border-t border-[var(--border)] pt-6">
+          {result.sections.map((s) => (
+            <li key={s.key}>
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="font-medium">{s.label}</span>
+                <span className="tabular-nums text-[var(--ink-muted)]">
+                  {s.score} / {s.outOf}
+                </span>
+              </div>
+              {/*
+                A bar, not a percentage. Four out of five is a thing a child
+                can look at; 80% is a thing a child gets marked on.
+              */}
+              <div
+                className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--surface)]"
+                role="img"
+                aria-label={`${s.label}: ${s.score} out of ${s.outOf}`}
+              >
+                <div
+                  className="h-full rounded-full bg-[var(--primary)]"
+                  style={{
+                    width: `${s.outOf ? (s.score / s.outOf) * 100 : 0}%`,
+                  }}
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
+
+      <p className="mt-4 text-[var(--ink-muted)]">
+        This is a rough picture, not a verdict — seventeen questions can only
+        say so much. What it&rsquo;s good for is telling Sheeba where to begin.
+      </p>
 
       {/*
         Save-the-link comes BEFORE the ask. A child who does not want to hand
@@ -495,53 +543,61 @@ function Result({
         </Button>
       </div>
 
-      {sent ? (
-        /*
-          Booking belongs HERE, not only in the email.
-          The parent is reading this now, having just typed their address.
-          Making them wait for an email to do the one thing we want them to do
-          loses most of them between the two — so the class is offered on the
-          screen they are already on, and the email is the reminder rather than
-          the route.
-        */
-        <div className="mt-8 rounded-[var(--radius-card)] bg-[var(--correct-soft)] p-5">
-          <p className="font-medium text-[var(--correct)]">
-            Thank you — that&rsquo;s on its way to you.
-          </p>
-          {bookingUrl ? (
-            <>
-              <p className="mt-1 text-[var(--ink-muted)]">
-                The next step is a free half-hour class with Sheeba. Pick a time
-                that suits you — you&rsquo;ll see them in your own timezone.
-              </p>
-              <Button asChild size="lg" className="mt-4">
-                <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
-                  Pick a time
-                </a>
-              </Button>
-              <p className="mt-3 text-sm text-[var(--ink-faint)]">
-                The one-page report follows in a day or so — Sheeba writes each
-                one herself.
-              </p>
-            </>
-          ) : (
-            <p className="mt-1 text-[var(--ink-muted)]">
-              Sheeba reads every one of these herself, so it may take a day. She
-              will send the report and a few times for a free class that work
-              where you are.
+      {/*
+        The two asks, in the order they matter.
+
+        Booking is first and it is the real conversion — it is also the only
+        one of the two that leads anywhere a score cannot: to someone who has
+        actually met the child. The email is the smaller, honest ask beneath
+        it, and it is now a true statement, because what arrives IS what is on
+        this screen.
+      */}
+      <div className="mt-8 rounded-[var(--radius-card)] bg-[var(--panel-mint)] p-6">
+        <h2 className="text-xl font-bold">What happens next</h2>
+        <p className="mt-2 text-[var(--ink-muted)]">
+          Half an hour with Sheeba, free. She talks to {who}, gets a proper
+          sense of where they are, and tells you honestly whether this is the
+          right thing for them — including when it isn&rsquo;t.
+        </p>
+        {bookingUrl ? (
+          <>
+            <Button asChild size="lg" className="mt-5">
+              <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
+                Book a session with Sheeba
+              </a>
+            </Button>
+            <p className="mt-3 text-sm text-[var(--ink-faint)]">
+              You&rsquo;ll see the times in your own timezone. Nothing to pay
+              and nothing to prepare.
             </p>
-          )}
+          </>
+        ) : (
+          <p className="mt-3 text-sm text-[var(--ink-faint)]">
+            Leave your email below and Sheeba will write to you with a few
+            times that work where you are.
+          </p>
+        )}
+      </div>
+
+      {sent ? (
+        <div className="mt-6 rounded-[var(--radius-card)] bg-[var(--correct-soft)] p-5">
+          <p className="font-medium text-[var(--correct)]">
+            Sent — it&rsquo;s on its way.
+          </p>
+          <p className="mt-1 text-[var(--ink-muted)]">
+            The email has this result in it, and the link back to this page.
+          </p>
         </div>
       ) : (
-        <form onSubmit={onSubmit} className="mt-8 space-y-5">
+        <form onSubmit={onSubmit} className="mt-6 space-y-5">
           <div>
             <h2 className="text-lg font-medium">
-              Would you like the full report?
+              Want this in your inbox?
             </h2>
             <p className="mt-1 text-[var(--ink-muted)]">
-              It&rsquo;s one page: what {who} did well, what to work on next, and
-              where they&rsquo;d start. It&rsquo;s free, and so is the class that
-              comes with it. Ask a parent to fill this in.
+              We&rsquo;ll send exactly what&rsquo;s on this page, so a parent
+              can look at it later. Nothing else is held back — you&rsquo;ve
+              already seen the whole thing.
             </p>
           </div>
 
@@ -574,8 +630,8 @@ function Result({
             <Input id="whatsapp" name="whatsapp" autoComplete="tel" />
           </Field>
 
-          <Button type="submit" size="lg" disabled={pending}>
-            {pending ? "Sending…" : "Send me the report"}
+          <Button type="submit" size="lg" variant="secondary" disabled={pending}>
+            {pending ? "Sending…" : "Email me this result"}
           </Button>
 
           <p className="text-sm text-[var(--ink-faint)]">
