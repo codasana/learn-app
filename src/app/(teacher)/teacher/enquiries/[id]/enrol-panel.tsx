@@ -140,7 +140,10 @@ export function EnrolPanel({
         <Select id="avatar" name="avatar" defaultValue="fox">
           {AVATAR_KEYS.map((k) => (
             <option key={k} value={k}>
-              {AVATARS[k].emoji}  {AVATARS[k].label}
+              {/* A template literal, because JSX collapses the whitespace
+                  between two expressions and the emoji ends up glued to the
+                  word. */}
+              {`${AVATARS[k].emoji}  ${AVATARS[k].label}`}
             </option>
           ))}
         </Select>
